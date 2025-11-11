@@ -168,7 +168,30 @@ export default function LeadForm() {
                     );
                 } else {
                     toast.success(res.message || 'Lead created successfully!');
-                    form.reset();
+                    form.reset({
+                        company: { name: '', website: '' },
+                        contactPersons: [
+                            {
+                                firstName: '',
+                                lastName: '',
+                                designation: '',
+                                emails: [''],
+                                phones: [''],
+                            },
+                        ],
+                        address: '',
+                        country: '',
+                        notes: '',
+                        status: 'new',
+                        activities: [
+                            {
+                                status: 'new',
+                                nextAction: undefined,
+                                dueAt: undefined,
+                                at: new Date(),
+                            },
+                        ],
+                    });
                 }
             } else {
                 toast.error(res.message || 'Failed to create lead.');
@@ -579,8 +602,7 @@ export default function LeadForm() {
                                             onValueChange={(v) =>
                                                 form.setValue(
                                                     'activities.0.nextAction',
-                                                    v as IActivity['nextAction'],
-                                                    { shouldValidate: true }
+                                                    v as IActivity['nextAction']
                                                 )
                                             }
                                         >
