@@ -14,7 +14,7 @@ export interface ILog {
     entityType: 'lead' | 'task' | 'user' | 'system' | 'other';
     entityId?: string;
     description?: string;
-    data?: Record<string, any>;
+    data?: object;
     ip?: string;
     userAgent?: string;
     createdAt: string;

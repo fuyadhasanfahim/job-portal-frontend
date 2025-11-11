@@ -41,7 +41,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { IActivity, IContactPerson } from '@/types/lead.interface';
+import { IActivity } from '@/types/lead.interface';
 
 const statusList = [
     'new',
@@ -176,7 +176,7 @@ export default function RootLeadsEditPage() {
             // Convert date strings to Date objects
             const formattedLead = {
                 ...lead,
-                activities: lead.activities?.map((activity: any) => ({
+                activities: lead.activities?.map((activity: IActivity) => ({
                     ...activity,
                     dueAt: activity.dueAt
                         ? new Date(activity.dueAt)

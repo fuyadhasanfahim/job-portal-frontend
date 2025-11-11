@@ -47,9 +47,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ILog } from '@/types/logs.interface';
+import { ILog, ILogStatItem, IUserStatItem } from '@/types/logs.interface';
 import { useGetLogsQuery } from '@/redux/features/log/logApi';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 export default function RootLogsPage() {
     const [filters, setFilters] = React.useState({
@@ -66,7 +67,7 @@ export default function RootLogsPage() {
     const [showFilters, setShowFilters] = React.useState(false);
 
     const queryParams = Object.entries(filters)
-        .filter(([_, value]) => value && value !== 'all')
+        .filter(([_unknown, value]) => value && value !== 'all')
         .map(([key, value]) => `${key}=${value}`);
 
     const { data, isLoading, refetch, isFetching } = useGetLogsQuery(
@@ -104,24 +105,24 @@ export default function RootLogsPage() {
         count: { label: 'Count', color: '#0ea5e9' },
     };
 
-    const actionData = stats.actions.map((item: any) => ({
+    const actionData = stats.actions.map((item: ILogStatItem) => ({
         name: item._id,
         value: item.count,
     }));
 
-    const entityData = stats.entities.map((item: any) => ({
+    const entityData = stats.entities.map((item: ILogStatItem) => ({
         name: item._id,
         value: item.count,
     }));
 
-    const userActivityData = stats.users.map((item: any) => ({
+    const userActivityData = stats.users.map((item: IUserStatItem) => ({
         name: item.firstName
             ? `${item.firstName} ${item.lastName || ''}`
             : 'System',
         count: item.count,
     }));
 
-    const hourlyData = stats.hourly.map((item: any) => ({
+    const hourlyData = stats.hourly.map((item: ILogStatItem) => ({
         hour: `${item._id}:00`,
         count: item.count,
     }));
@@ -129,15 +130,15 @@ export default function RootLogsPage() {
     const dailyData = stats.daily
         .slice()
         .reverse()
-        .map((item: any) => ({
-            date: new Date(item._id).toLocaleDateString('en-US', {
+        .map((item: ILogStatItem) => ({
+            date: new Date(item._id as string).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
             }),
             count: item.count,
         }));
 
-    const updateFilter = (key: string, value: any) => {
+    const updateFilter = (key: string, value: string) => {
         setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
     };
 
@@ -384,12 +385,12 @@ export default function RootLogsPage() {
                                     }
                                 >
                                     <option value="all">All Actions</option>
-                                    {stats.actions.map((action: any) => (
+                                    {stats.actions.map((action: ILogStatItem) => (
                                         <option
                                             key={action._id}
-                                            value={action._id}
+                                            value={action._id as string}
                                         >
-                                            {action._id.replace(/_/g, ' ')} (
+                                            {(action._id as string).replace(/_/g, ' ')} (
                                             {action.count})
                                         </option>
                                     ))}
@@ -411,10 +412,10 @@ export default function RootLogsPage() {
                                     }
                                 >
                                     <option value="all">All Entities</option>
-                                    {stats.entities.map((entity: any) => (
+                                    {stats.entities.map((entity: ILogStatItem) => (
                                         <option
                                             key={entity._id}
-                                            value={entity._id}
+                                            value={entity._id as string}
                                         >
                                             {entity._id} ({entity.count})
                                         </option>
@@ -432,7 +433,7 @@ export default function RootLogsPage() {
                                     onChange={(e) =>
                                         updateFilter(
                                             'limit',
-                                            parseInt(e.target.value)
+                                            e.target.value
                                         )
                                     }
                                 >
@@ -525,7 +526,7 @@ export default function RootLogsPage() {
                                     outerRadius={90}
                                     strokeWidth={5}
                                 >
-                                    {actionData.map((_: any, i: number) => (
+                                    {actionData.map((_: unknown, i: number) => (
                                         <Cell
                                             key={i}
                                             fill={colors[i % colors.length]}
@@ -793,10 +794,12 @@ export default function RootLogsPage() {
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 {log.user?.image && (
-                                                    <img
+                                                    <Image
                                                         src={log.user.image}
+                                                        width={24}
+                                                        height={24}
                                                         alt=""
-                                                        className="w-6 h-6 rounded-full"
+                                                        className="rounded-full"
                                                     />
                                                 )}
                                                 <span className="text-sm">
