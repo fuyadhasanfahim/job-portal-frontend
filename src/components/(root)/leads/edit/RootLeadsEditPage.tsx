@@ -1,9 +1,17 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useParams, useRouter } from 'next/navigation';
+import {
+    useGetLeadByIdQuery,
+    useUpdateLeadMutation,
+} from '@/redux/features/lead/leadApi';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ChevronDownIcon } from 'lucide-react';
 import { Form } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,48 +24,101 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CountrySelect } from '../../../shared/CountrySelect';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { Spinner } from '@/components/ui/spinner';
-import { toast } from 'sonner';
+import { CountrySelect } from '@/components/shared/CountrySelect';
 import {
-    useGetLeadByIdQuery,
-    useUpdateLeadMutation,
-} from '@/redux/features/lead/leadApi';
-import { useParams, useRouter } from 'next/navigation';
-import { IContactPerson } from '@/types/lead.interface';
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { IActivity, IContactPerson } from '@/types/lead.interface';
 
-// ✅ Zod validation schema
+const statusList = [
+    'new',
+    'busy',
+    'interested',
+    'not-interested',
+    'call-back',
+    'test-trial',
+    'on-board',
+    'no-answer',
+    'email/whatsApp-sent',
+    'language-barrier',
+    'invalid-number',
+] as const;
+
+const contactPersonSchema = z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    designation: z.string().optional(),
+    emails: z
+        .array(z.string().email('Invalid email'))
+        .min(1, 'At least one email required'),
+    phones: z
+        .array(z.string().min(7, 'Phone must be at least 7 digits'))
+        .min(1, 'At least one phone required'),
+});
+
 const leadSchema = z.object({
     company: z.object({
         name: z.string().min(1, 'Company name is required'),
-        website: z.string().url('Invalid URL').optional().or(z.literal('')),
-        emails: z
-            .array(z.string().email('Invalid email'))
-            .min(1, 'At least one email required'),
-        phones: z
-            .array(z.string().min(7, 'Phone must be at least 7 digits'))
-            .min(1, 'At least one phone required'),
+        website: z.url('Invalid URL').or(z.literal('')).optional(),
     }),
-    contactPersons: z
-        .array(
-            z.object({
-                firstName: z.string().min(1, 'First name is required'),
-                lastName: z.string().optional(),
-                designation: z.string().optional(),
-                emails: z
-                    .array(z.string().email('Invalid email'))
-                    .min(1, 'At least one email required'),
-                phones: z
-                    .array(z.string().min(7, 'Phone must be at least 7 digits'))
-                    .min(1, 'At least one phone required'),
-            })
-        )
-        .min(1, 'At least one contact person required'),
     address: z.string().optional(),
     country: z.string().min(1, 'Country is required'),
+    status: z.enum([
+        'new',
+        'busy',
+        'interested',
+        'not-interested',
+        'call-back',
+        'test-trial',
+        'on-board',
+        'no-answer',
+        'email/whatsApp-sent',
+        'language-barrier',
+        'invalid-number',
+    ]),
     notes: z.string().optional(),
+    activities: z
+        .array(
+            z.object({
+                status: z.enum([
+                    'new',
+                    'busy',
+                    'interested',
+                    'not-interested',
+                    'call-back',
+                    'test-trial',
+                    'on-board',
+                    'no-answer',
+                    'email/whatsApp-sent',
+                    'language-barrier',
+                    'invalid-number',
+                ]),
+                notes: z.string().optional(),
+                nextAction: z
+                    .enum(['follow-up', 'send-proposal', 'call-back', 'close'])
+                    .optional(),
+                dueAt: z.date().optional(),
+                byUser: z.string().optional(),
+                at: z.date(),
+            })
+        )
+        .optional(),
+    contactPersons: z
+        .array(contactPersonSchema)
+        .min(1, 'At least one contact person is required'),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
@@ -70,16 +131,16 @@ export default function RootLeadsEditPage() {
         data,
         isLoading: loadingLead,
         isError,
-    } = useGetLeadByIdQuery(id, {
-        skip: !id,
-    });
-
+    } = useGetLeadByIdQuery(id, { skip: !id });
     const [updateLead, { isLoading: updating }] = useUpdateLeadMutation();
+
+    const [open, setOpen] = useState(false);
+    const isLoading = loadingLead || updating;
 
     const form = useForm<LeadFormValues>({
         resolver: zodResolver(leadSchema),
         defaultValues: {
-            company: { name: '', website: '', emails: [''], phones: [''] },
+            company: { name: '', website: '' },
             contactPersons: [
                 {
                     firstName: '',
@@ -92,84 +153,59 @@ export default function RootLeadsEditPage() {
             address: '',
             country: '',
             notes: '',
+            status: 'new',
+            activities: [
+                {
+                    status: 'new',
+                    nextAction: undefined,
+                    dueAt: undefined,
+                    at: new Date(),
+                },
+            ],
         },
     });
 
-    // ✅ Manage dynamic contactPersons array
     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: 'contactPersons',
     });
 
-    // ✅ Pre-fill form with lead data
     useEffect(() => {
         if (data?.lead) {
             const lead = data.lead;
-            form.reset({
-                company: {
-                    name: lead.company?.name || '',
-                    website: lead.company?.website || '',
-                    emails: lead.company?.emails?.length
-                        ? lead.company.emails
-                        : [''],
-                    phones: lead.company?.phones?.length
-                        ? lead.company.phones
-                        : [''],
-                },
-                contactPersons:
-                    lead.contactPersons?.length > 0
-                        ? lead.contactPersons.map((cp: IContactPerson) => ({
-                              firstName: cp.firstName,
-                              lastName: cp.lastName || '',
-                              designation: cp.designation || '',
-                              emails: cp.emails?.length ? cp.emails : [''],
-                              phones: cp.phones?.length ? cp.phones : [''],
-                          }))
-                        : [
-                              {
-                                  firstName: '',
-                                  lastName: '',
-                                  designation: '',
-                                  emails: [''],
-                                  phones: [''],
-                              },
-                          ],
-                address: lead.address || '',
-                country: lead.country || '',
-                notes: lead.notes || '',
-            });
+            // Convert date strings to Date objects
+            const formattedLead = {
+                ...lead,
+                activities: lead.activities?.map((activity: any) => ({
+                    ...activity,
+                    dueAt: activity.dueAt
+                        ? new Date(activity.dueAt)
+                        : undefined,
+                    at: activity.at ? new Date(activity.at) : new Date(),
+                })),
+            };
+            form.reset(formattedLead);
         }
     }, [data, form]);
 
-    // ✅ Company field array helpers
-    const companyEmails = form.watch('company.emails');
-    const setCompanyEmails = (next: string[]) =>
-        form.setValue('company.emails', next);
-
-    const companyPhones = form.watch('company.phones');
-    const setCompanyPhones = (next: string[]) =>
-        form.setValue('company.phones', next);
-
-    // ✅ Submit handler
     const onSubmit = async (values: LeadFormValues) => {
         try {
             const res = await updateLead({ id, body: values }).unwrap();
             if (res.success) {
-                toast.success('Lead updated successfully!');
+                toast.success('✅ Lead updated successfully!');
                 router.push('/leads');
+            } else {
+                toast.error(res.message || 'Update failed.');
             }
         } catch (err) {
-            toast.error(
-                (err as Error).message ||
-                    (err as Error).message ||
-                    'Failed to update lead.'
-            );
+            console.error(err);
+            toast.error('Failed to update lead.');
         }
     };
 
     if (loadingLead) {
         return (
-            <div className="p-8 space-y-4">
+            <div className="p-8">
                 <Card>
                     <CardHeader>
                         <CardTitle>Loading Lead Data...</CardTitle>
@@ -182,12 +218,13 @@ export default function RootLeadsEditPage() {
         );
     }
 
-    if (isError)
+    if (isError) {
         return (
             <div className="p-8 text-center text-gray-500">
                 <p>Failed to load lead information.</p>
             </div>
         );
+    }
 
     return (
         <Form {...form}>
@@ -195,7 +232,6 @@ export default function RootLeadsEditPage() {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="max-w-5xl w-full mx-auto mt-6 space-y-8"
             >
-                {/* --- Company Info --- */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Company Information</CardTitle>
@@ -204,13 +240,21 @@ export default function RootLeadsEditPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid grid-cols-2 gap-6 items-start">
                             <div className="space-y-2">
                                 <Label>Company Name *</Label>
                                 <Input
                                     {...form.register('company.name')}
                                     placeholder="Enter company name"
                                 />
+                                {form.formState.errors.company?.name && (
+                                    <p className="text-sm text-red-600">
+                                        {
+                                            form.formState.errors.company.name
+                                                .message
+                                        }
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label>Website *</Label>
@@ -218,103 +262,17 @@ export default function RootLeadsEditPage() {
                                     {...form.register('company.website')}
                                     placeholder="https://example.com"
                                 />
+                                {form.formState.errors.company?.website && (
+                                    <p className="text-sm text-red-600">
+                                        {
+                                            form.formState.errors.company
+                                                .website.message
+                                        }
+                                    </p>
+                                )}
                             </div>
                         </div>
 
-                        {/* --- Emails + Phones --- */}
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label>Email(s) *</Label>
-                                {companyEmails.map((_, i) => (
-                                    <div key={i} className="flex gap-2 mt-1">
-                                        <Input
-                                            {...form.register(
-                                                `company.emails.${i}`
-                                            )}
-                                            placeholder="email@example.com"
-                                        />
-                                        {i === 0 ? (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={() =>
-                                                    setCompanyEmails([
-                                                        ...companyEmails,
-                                                        '',
-                                                    ])
-                                                }
-                                            >
-                                                <IconPlus className="h-4 w-4" />
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="icon"
-                                                onClick={() =>
-                                                    setCompanyEmails(
-                                                        companyEmails.filter(
-                                                            (_, idx) =>
-                                                                idx !== i
-                                                        )
-                                                    )
-                                                }
-                                            >
-                                                <IconTrash className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Phone(s) *</Label>
-                                {companyPhones.map((_, i) => (
-                                    <div key={i} className="flex gap-2 mt-1">
-                                        <Input
-                                            {...form.register(
-                                                `company.phones.${i}`
-                                            )}
-                                            placeholder="01xxxxxxxxx"
-                                        />
-                                        {i === 0 ? (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={() =>
-                                                    setCompanyPhones([
-                                                        ...companyPhones,
-                                                        '',
-                                                    ])
-                                                }
-                                            >
-                                                <IconPlus className="h-4 w-4" />
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="icon"
-                                                onClick={() =>
-                                                    setCompanyPhones(
-                                                        companyPhones.filter(
-                                                            (_, idx) =>
-                                                                idx !== i
-                                                        )
-                                                    )
-                                                }
-                                            >
-                                                <IconTrash className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* --- Address + Country --- */}
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label>Address</Label>
@@ -322,7 +280,13 @@ export default function RootLeadsEditPage() {
                                     {...form.register('address')}
                                     placeholder="Enter address"
                                 />
+                                {form.formState.errors?.address && (
+                                    <p className="text-sm text-red-600">
+                                        {form.formState.errors.address.message}
+                                    </p>
+                                )}
                             </div>
+
                             <div className="space-y-2">
                                 <Label>Country *</Label>
                                 <CountrySelect
@@ -331,12 +295,16 @@ export default function RootLeadsEditPage() {
                                         form.setValue('country', val)
                                     }
                                 />
+                                {form.formState.errors?.country && (
+                                    <p className="text-sm text-red-600">
+                                        {form.formState.errors.country.message}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* --- Contact Persons --- */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Contact Person(s)</CardTitle>
@@ -344,7 +312,6 @@ export default function RootLeadsEditPage() {
                             Add one or more contact persons.
                         </CardDescription>
                     </CardHeader>
-
                     <CardContent className="space-y-6">
                         {fields.map((field, index) => {
                             const contactEmails = form.watch(
@@ -388,13 +355,25 @@ export default function RootLeadsEditPage() {
 
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <Label>First Name *</Label>
+                                            <Label>First Name</Label>
                                             <Input
                                                 {...form.register(
                                                     `contactPersons.${index}.firstName`
                                                 )}
                                                 placeholder="First name"
                                             />
+                                            {form.formState.errors
+                                                ?.contactPersons?.[index]
+                                                ?.firstName && (
+                                                <p className="text-sm text-red-600">
+                                                    {
+                                                        form.formState.errors
+                                                            .contactPersons[
+                                                            index
+                                                        ].firstName.message
+                                                    }
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Last Name</Label>
@@ -404,13 +383,25 @@ export default function RootLeadsEditPage() {
                                                 )}
                                                 placeholder="Last name"
                                             />
+                                            {form.formState.errors
+                                                ?.contactPersons?.[index]
+                                                ?.lastName && (
+                                                <p className="text-sm text-red-600">
+                                                    {
+                                                        form.formState.errors
+                                                            .contactPersons[
+                                                            index
+                                                        ].lastName.message
+                                                    }
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-6">
                                         {/* Emails */}
                                         <div className="space-y-2">
-                                            <Label>Email(s)</Label>
+                                            <Label>Email(s) *</Label>
                                             {contactEmails.map((_, i) => (
                                                 <div
                                                     key={i}
@@ -459,11 +450,22 @@ export default function RootLeadsEditPage() {
                                                     )}
                                                 </div>
                                             ))}
+                                            {form.formState.errors
+                                                ?.contactPersons?.[index]
+                                                ?.emails && (
+                                                <p className="text-sm text-red-600">
+                                                    {
+                                                        form.formState.errors
+                                                            .contactPersons[
+                                                            index
+                                                        ].emails.message
+                                                    }
+                                                </p>
+                                            )}
                                         </div>
 
-                                        {/* Phones */}
                                         <div className="space-y-2">
-                                            <Label>Phone(s)</Label>
+                                            <Label>Phone(s) *</Label>
                                             {contactPhones.map((_, i) => (
                                                 <div
                                                     key={i}
@@ -512,6 +514,18 @@ export default function RootLeadsEditPage() {
                                                     )}
                                                 </div>
                                             ))}
+                                            {form.formState.errors
+                                                ?.contactPersons?.[index]
+                                                ?.phones && (
+                                                <p className="text-sm text-red-600">
+                                                    {
+                                                        form.formState.errors
+                                                            .contactPersons[
+                                                            index
+                                                        ].phones.message
+                                                    }
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2 col-span-2">
@@ -522,13 +536,23 @@ export default function RootLeadsEditPage() {
                                                 )}
                                                 placeholder="Designation"
                                             />
+                                            {form.formState.errors
+                                                ?.contactPersons?.[index]
+                                                ?.designation && (
+                                                <p className="text-sm text-red-600">
+                                                    {
+                                                        form.formState.errors
+                                                            .contactPersons[
+                                                            index
+                                                        ].designation.message
+                                                    }
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
-
-                        {/* Add Another Person */}
                         <Button
                             type="button"
                             variant="secondary"
@@ -542,22 +566,147 @@ export default function RootLeadsEditPage() {
                                 })
                             }
                         >
-                            <IconPlus className="mr-1" />
+                            <IconPlus />
                             Add Another Contact Person
                         </Button>
 
-                        <div className="space-y-2">
-                            <Label>Notes</Label>
-                            <Textarea
-                                {...form.register('notes')}
-                                placeholder="Additional notes..."
-                            />
-                        </div>
-                    </CardContent>
+                        <Card className="shadow-none">
+                            <CardContent>
+                                <div className="flex items-start justify-between gap-6">
+                                    {/* Status */}
+                                    <div className="space-y-2 w-full">
+                                        <Label>Status *</Label>
+                                        <Select
+                                            value={form.watch('status') || ''}
+                                            onValueChange={(v) =>
+                                                form.setValue(
+                                                    'status',
+                                                    v as LeadFormValues['status']
+                                                )
+                                            }
+                                        >
+                                            <SelectTrigger className="w-full capitalize">
+                                                <SelectValue placeholder="Select Status" />
+                                            </SelectTrigger>
+                                            <SelectContent className="capitalize">
+                                                {statusList.map((s) => (
+                                                    <SelectItem
+                                                        key={s}
+                                                        value={s}
+                                                    >
+                                                        {s}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
+                                    {/* Next Action */}
+                                    <div className="space-y-2 w-full">
+                                        <Label>Next Action</Label>
+                                        <Select
+                                            value={
+                                                form.watch(
+                                                    'activities.0.nextAction'
+                                                ) || ''
+                                            }
+                                            onValueChange={(v) =>
+                                                form.setValue(
+                                                    'activities.0.nextAction',
+                                                    v as IActivity['nextAction']
+                                                )
+                                            }
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select next action" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="follow-up">
+                                                    Follow Up
+                                                </SelectItem>
+                                                <SelectItem value="send-proposal">
+                                                    Send Proposal
+                                                </SelectItem>
+                                                <SelectItem value="call-back">
+                                                    Call Back
+                                                </SelectItem>
+                                                <SelectItem value="close">
+                                                    Close
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Due Date */}
+                                    <div className="flex flex-col gap-2 w-full">
+                                        <Label>Due Date</Label>
+                                        <Popover
+                                            open={open}
+                                            onOpenChange={setOpen}
+                                        >
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className="justify-between"
+                                                >
+                                                    {(() => {
+                                                        const dueAt =
+                                                            form.watch(
+                                                                'activities.0.dueAt'
+                                                            );
+                                                        return dueAt
+                                                            ? format(
+                                                                  dueAt,
+                                                                  'PPP'
+                                                              )
+                                                            : 'Select date';
+                                                    })()}
+                                                    <ChevronDownIcon />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent
+                                                className="w-auto p-0"
+                                                align="start"
+                                            >
+                                                <Calendar
+                                                    selected={form.watch(
+                                                        'activities.0.dueAt'
+                                                    )}
+                                                    onSelect={(v) => {
+                                                        form.setValue(
+                                                            'activities.0.dueAt',
+                                                            v as IActivity['dueAt']
+                                                        );
+                                                        setOpen(false);
+                                                    }}
+                                                    mode="single"
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Notes</Label>
+                                    <Textarea
+                                        {...form.register('notes')}
+                                        placeholder="Additional notes..."
+                                    />
+                                    {form.formState.errors?.notes && (
+                                        <p className="text-sm text-red-600">
+                                            {
+                                                form.formState.errors.notes
+                                                    .message
+                                            }
+                                        </p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </CardContent>
                     <CardFooter className="flex gap-4">
-                        <Button type="submit" disabled={updating}>
-                            {updating ? <Spinner /> : 'Save Changes'}
+                        <Button type="submit" disabled={isLoading}>
+                            {isLoading ? <Spinner /> : 'Submit'}
                         </Button>
                         <Button
                             type="button"

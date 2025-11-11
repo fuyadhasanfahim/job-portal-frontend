@@ -350,7 +350,7 @@ export default function LeadsTable() {
                                             (_, i) => (
                                                 <TableRow key={i}>
                                                     {Array.from({
-                                                        length: 12,
+                                                        length: 11,
                                                     }).map((__, j) => (
                                                         <TableCell
                                                             key={j}
@@ -365,7 +365,7 @@ export default function LeadsTable() {
                                     ) : isError ? (
                                         <TableRow>
                                             <TableCell
-                                                colSpan={12}
+                                                colSpan={11}
                                                 className="text-center py-12 text-destructive border"
                                             >
                                                 Failed to load leads
@@ -434,6 +434,7 @@ export default function LeadsTable() {
                                                                             ei
                                                                         ) => (
                                                                             <p
+                                                                                className="truncate max-w-[200px]"
                                                                                 key={`cp-email-${lead._id}-${ci}-${ei}`}
                                                                             >
                                                                                 {
