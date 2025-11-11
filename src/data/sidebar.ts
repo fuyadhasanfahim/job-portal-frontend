@@ -2,6 +2,7 @@ import {
     IconAd2,
     IconFileTypeXls,
     IconLayoutDashboard,
+    IconLogs,
 } from '@tabler/icons-react';
 
 export const data = [
@@ -14,13 +15,19 @@ export const data = [
     {
         title: 'Leads',
         url: '/leads',
-        access: ['admin', 'lead-generator', 'telemarketer'],
+        access: ['super-admin', 'admin', 'lead-generator', 'telemarketer'],
         icon: IconFileTypeXls,
     },
     {
         title: 'Tasks',
         url: '/tasks',
-        access: ['admin', 'lead-generator', 'telemarketer'],
+        access: ['super-admin', 'admin', 'lead-generator', 'telemarketer'],
         icon: IconAd2,
+    },
+    {
+        title: 'Logs',
+        url: '/logs',
+        access: ['super-admin', 'admin'],
+        icon: IconLogs,
     },
 ];
