@@ -1,880 +1,636 @@
 'use client';
 
-import * as React from 'react';
+import React, { useState } from 'react';
+import {
+    useGetLeadAnalyticsQuery,
+    useGetUserLeadStatsQuery,
+    useGetTopUsersPieChartQuery,
+    useGetAllUsersTableQuery,
+} from '@/redux/features/log/logApi';
 import {
     Card,
-    CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
+    CardDescription,
+    CardContent,
 } from '@/components/ui/card';
 import {
-    ChartContainer,
-    ChartTooltip,
-    ChartTooltipContent,
-    type ChartConfig,
-} from '@/components/ui/chart';
+    Table,
+    TableHeader,
+    TableHead,
+    TableRow,
+    TableBody,
+    TableCell,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    LineChart,
+    Line,
     BarChart,
     Bar,
-    XAxis,
-    YAxis,
     PieChart,
     Pie,
     Cell,
-    Label,
-    LineChart,
-    Line,
     CartesianGrid,
+    XAxis,
+    YAxis,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
 } from 'recharts';
-import {
-    Loader2,
-    RefreshCw,
-    Download,
-    Filter,
-    Search,
-    ChevronLeft,
-    ChevronRight,
-} from 'lucide-react';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { ILog, ILogStatItem, IUserStatItem } from '@/types/logs.interface';
-import { useGetLogsQuery } from '@/redux/features/log/logApi';
-import { cn } from '@/lib/utils';
-import Image from 'next/image';
+import { Calendar, Users, TrendingUp } from 'lucide-react';
+
+const COLORS = [
+    '#009999',
+    '#ff6a00',
+    '#2563eb',
+    '#10b981',
+    '#f59e0b',
+    '#ef4444',
+    '#8b5cf6',
+    '#ec4899',
+    '#06b6d4',
+    '#84cc16',
+];
 
 export default function RootLogsPage() {
-    const [filters, setFilters] = React.useState({
-        page: 1,
-        limit: 50,
-        action: 'all',
-        entityType: 'all',
-        userId: 'all',
-        startDate: '',
-        endDate: '',
-        search: '',
-    });
+    const [selectedMonth, setSelectedMonth] = useState<string>('');
+    const [barChartPeriod, setBarChartPeriod] = useState<string>('daily');
+    const [pieChartPeriod, setPieChartPeriod] = useState<string>('daily');
+    const [tablePage, setTablePage] = useState<number>(1);
+    const [tableSearch, setTableSearch] = useState<string>('');
 
-    const [showFilters, setShowFilters] = React.useState(false);
+    // Queries
+    const { data: analytics, isLoading: loadingAnalytics } =
+        useGetLeadAnalyticsQuery(selectedMonth);
 
-    const queryParams = Object.entries(filters)
-        .filter(([_unknown, value]) => value && value !== 'all')
-        .map(([key, value]) => `${key}=${value}`);
+    const { data: userStats, isLoading: loadingUserStats } =
+        useGetUserLeadStatsQuery(barChartPeriod);
 
-    const { data, isLoading, refetch, isFetching } = useGetLogsQuery(
-        queryParams,
-        { refetchOnMountOrArgChange: true }
-    );
+    const { data: pieChartData, isLoading: loadingPieChart } =
+        useGetTopUsersPieChartQuery({ period: pieChartPeriod, limit: 10 });
 
-    const logs = data?.logs || [];
-    const pagination = data?.pagination || {
-        totalItems: 0,
-        totalPages: 1,
-        currentPage: 1,
-        limit: 50,
-    };
-    const stats = data?.stats || {
-        actions: [],
-        entities: [],
-        users: [],
-        hourly: [],
-        daily: [],
-    };
+    const { data: usersTable, isLoading: loadingUsersTable } =
+        useGetAllUsersTableQuery({
+            page: tablePage,
+            limit: 10,
+            search: tableSearch,
+        });
 
-    const colors = [
-        '#0ea5e9',
-        '#22c55e',
-        '#eab308',
-        '#ef4444',
-        '#a855f7',
-        '#14b8a6',
-        '#f97316',
-        '#ec4899',
-    ];
+    const hourlyData = analytics?.data?.hourly || [];
+    const dailyData = analytics?.data?.daily || [];
+    const monthlyData = analytics?.data?.monthly || [];
 
-    const chartConfig: ChartConfig = {
-        count: { label: 'Count', color: '#0ea5e9' },
-    };
+    // Transform user stats data for bar chart
+    const transformedBarChartData = React.useMemo(() => {
+        if (!userStats?.data) return [];
 
-    const actionData = stats.actions.map((item: ILogStatItem) => ({
-        name: item._id,
-        value: item.count,
-    }));
+        const groupedData: Record<string, any> = {};
 
-    const entityData = stats.entities.map((item: ILogStatItem) => ({
-        name: item._id,
-        value: item.count,
-    }));
+        userStats.data.forEach((stat: any) => {
+            const period = stat.period;
+            if (!groupedData[period]) {
+                groupedData[period] = { period };
+            }
+            groupedData[period][`${stat.userName}_new`] = stat.newCount;
+            groupedData[period][`${stat.userName}_notNew`] = stat.notNewCount;
+            groupedData[period][stat.userName] = stat.totalCount;
+        });
 
-    const userActivityData = stats.users.map((item: IUserStatItem) => ({
-        name: item.firstName
-            ? `${item.firstName} ${item.lastName || ''}`
-            : 'System',
-        count: item.count,
-    }));
+        return Object.values(groupedData);
+    }, [userStats]);
 
-    const hourlyData = stats.hourly.map((item: ILogStatItem) => ({
-        hour: `${item._id}:00`,
-        count: item.count,
-    }));
+    // Get unique users for bar chart
+    const uniqueUsers = React.useMemo((): string[] => {
+        if (!userStats?.data) return [];
+        const users = new Set(userStats.data.map((stat: any) => stat.userName));
+        return Array.from(users) as string[];
+    }, [userStats]);
 
-    const dailyData = stats.daily
-        .slice()
-        .reverse()
-        .map((item: ILogStatItem) => ({
-            date: new Date(item._id as string).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-            }),
-            count: item.count,
-        }));
-
-    const updateFilter = (key: string, value: string) => {
-        setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
+    // Custom tooltip for bar chart
+    const CustomBarTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-background border rounded-lg p-3 shadow-lg">
+                    <p className="font-semibold mb-2">{label}</p>
+                    {payload.map((entry: any, index: number) => (
+                        <div key={index} className="flex items-center gap-2 text-sm">
+                            <div
+                                className="w-3 h-3 rounded"
+                                style={{ backgroundColor: entry.color }}
+                            />
+                            <span>{entry.name}:</span>
+                            <span className="font-semibold">{entry.value}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        return null;
     };
 
-    const handlePageChange = (newPage: number) => {
-        setFilters((prev) => ({ ...prev, page: newPage }));
+    // Custom tooltip for pie chart
+    const CustomPieTooltip = ({ active, payload }: any) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className="bg-background border rounded-lg p-3 shadow-lg">
+                    <p className="font-semibold mb-2">{data.userName}</p>
+                    <div className="space-y-1 text-sm">
+                        <div className="flex justify-between gap-4">
+                            <span>New:</span>
+                            <span className="font-semibold text-green-600">
+                                {data.newCount}
+                            </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                            <span>Not New:</span>
+                            <span className="font-semibold text-blue-600">
+                                {data.notNewCount}
+                            </span>
+                        </div>
+                        <div className="flex justify-between gap-4 border-t pt-1">
+                            <span>Total:</span>
+                            <span className="font-bold">{data.totalCount}</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return null;
     };
-
-    const getActionBadge = (action: string) => {
-        const actionColors: Record<string, string> = {
-            user_login: 'bg-green-500',
-            user_signup: 'bg-blue-500',
-            user_logout: 'bg-gray-500',
-            create_lead: 'bg-purple-500',
-            update_lead: 'bg-yellow-500',
-            view_lead_details: 'bg-cyan-500',
-            create_task: 'bg-indigo-500',
-            update_task_progress: 'bg-orange-500',
-            token_rotated: 'bg-slate-500',
-            view_profile: 'bg-teal-500',
-        };
-
-        return (
-            <Badge
-                className={cn(
-                    'text-white text-xs capitalize bg-gray-400',
-                    actionColors[action]
-                )}
-            >
-                {action.replace(/_/g, ' ')}
-            </Badge>
-        );
-    };
-
-    const getEntityBadge = (entityType: string) => {
-        const entityColors: Record<string, string> = {
-            lead: 'bg-blue-100 text-blue-800 border-blue-200',
-            task: 'bg-purple-100 text-purple-800 border-purple-200',
-            user: 'bg-green-100 text-green-800 border-green-200',
-            system: 'bg-gray-100 text-gray-800 border-gray-200',
-        };
-
-        return (
-            <Badge
-                variant="outline"
-                className={cn(
-                    'bg-gray-100 capitalize',
-                    entityColors[entityType]
-                )}
-            >
-                {entityType}
-            </Badge>
-        );
-    };
-
-    const exportLogs = () => {
-        const csvContent = [
-            [
-                'Date',
-                'Action',
-                'Entity Type',
-                'Description',
-                'User',
-                'IP',
-                'User Agent',
-            ],
-            ...logs.map((log: ILog) => [
-                new Date(log.createdAt).toLocaleString(),
-                log.action,
-                log.entityType,
-                log.description || '-',
-                log.user?.firstName
-                    ? `${log.user.firstName} ${log.user.lastName || ''}`
-                    : 'System',
-                log.ip || '-',
-                log.userAgent || '-',
-            ]),
-        ]
-            .map((row) => row.map((cell: string) => `"${cell}"`).join(','))
-            .join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `logs-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-    };
-
-    if (isLoading)
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        );
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-8 p-6">
+            {/* Heading */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-                        Activity Logs & Analytics
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Lead Analytics Dashboard
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Monitor system activity and user behavior
+                    <p className="text-muted-foreground">
+                        Comprehensive overview of lead performance and user activity
                     </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => refetch()}
-                        disabled={isFetching}
-                    >
-                        <RefreshCw
-                            className={`h-4 w-4 mr-2 ${
-                                isFetching ? 'animate-spin' : ''
-                            }`}
-                        />
-                        Refresh
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowFilters(!showFilters)}
-                    >
-                        <Filter className="h-4 w-4 mr-2" />
-                        {showFilters ? 'Hide' : 'Show'} Filters
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={exportLogs}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export CSV
-                    </Button>
+
+                {/* Month Filter */}
+                <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-muted-foreground" />
+                    <Input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="w-[160px]"
+                    />
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Total Logs
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {pagination.totalItems.toLocaleString()}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Across all activities
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Unique Actions
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats.actions.length}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Different action types
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Active Users
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats.users.length}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Users with activity
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Entity Types
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats.entities.length}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Categories tracked
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Filters */}
-            {showFilters && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Filter Logs</CardTitle>
-                        <CardDescription>
-                            Refine your log search
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    Search
-                                </label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Search logs..."
-                                        value={filters.search}
-                                        onChange={(e) =>
-                                            updateFilter(
-                                                'search',
-                                                e.target.value
-                                            )
-                                        }
-                                        className="pl-9"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    Action Type
-                                </label>
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    value={filters.action}
-                                    onChange={(e) =>
-                                        updateFilter('action', e.target.value)
-                                    }
-                                >
-                                    <option value="all">All Actions</option>
-                                    {stats.actions.map((action: ILogStatItem) => (
-                                        <option
-                                            key={action._id}
-                                            value={action._id as string}
-                                        >
-                                            {(action._id as string).replace(/_/g, ' ')} (
-                                            {action.count})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    Entity Type
-                                </label>
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    value={filters.entityType}
-                                    onChange={(e) =>
-                                        updateFilter(
-                                            'entityType',
-                                            e.target.value
-                                        )
-                                    }
-                                >
-                                    <option value="all">All Entities</option>
-                                    {stats.entities.map((entity: ILogStatItem) => (
-                                        <option
-                                            key={entity._id}
-                                            value={entity._id as string}
-                                        >
-                                            {entity._id} ({entity.count})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    Items per page
-                                </label>
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    value={filters.limit.toString()}
-                                    onChange={(e) =>
-                                        updateFilter(
-                                            'limit',
-                                            e.target.value
-                                        )
-                                    }
-                                >
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                    <option value="200">200</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    Start Date
-                                </label>
-                                <Input
-                                    type="date"
-                                    value={filters.startDate}
-                                    onChange={(e) =>
-                                        updateFilter(
-                                            'startDate',
-                                            e.target.value
-                                        )
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">
-                                    End Date
-                                </label>
-                                <Input
-                                    type="date"
-                                    value={filters.endDate}
-                                    onChange={(e) =>
-                                        updateFilter('endDate', e.target.value)
-                                    }
-                                />
-                            </div>
-
-                            <div className="flex items-end">
-                                <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                        setFilters({
-                                            page: 1,
-                                            limit: 50,
-                                            action: 'all',
-                                            entityType: 'all',
-                                            userId: 'all',
-                                            startDate: '',
-                                            endDate: '',
-                                            search: '',
-                                        })
-                                    }
-                                    className="w-full"
-                                >
-                                    Clear All Filters
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {/* Action Distribution Pie */}
-                <Card className="flex flex-col">
-                    <CardHeader className="items-center pb-0">
-                        <CardTitle>Action Distribution</CardTitle>
-                        <CardDescription>
-                            Breakdown of log actions
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-1 pb-0">
-                        <ChartContainer
-                            config={chartConfig}
-                            className="mx-auto aspect-square max-h-[280px]"
-                        >
-                            <PieChart>
-                                <ChartTooltip
-                                    cursor={false}
-                                    content={<ChartTooltipContent hideLabel />}
-                                />
-                                <Pie
-                                    data={actionData}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    innerRadius={60}
-                                    outerRadius={90}
-                                    strokeWidth={5}
-                                >
-                                    {actionData.map((_: unknown, i: number) => (
-                                        <Cell
-                                            key={i}
-                                            fill={colors[i % colors.length]}
-                                        />
-                                    ))}
-                                    <Label
-                                        content={({ viewBox }) => {
-                                            if (
-                                                viewBox &&
-                                                'cx' in viewBox &&
-                                                'cy' in viewBox
-                                            ) {
-                                                return (
-                                                    <text
-                                                        x={viewBox.cx}
-                                                        y={viewBox.cy}
-                                                        textAnchor="middle"
-                                                        dominantBaseline="middle"
-                                                    >
-                                                        <tspan
-                                                            x={viewBox.cx}
-                                                            y={viewBox.cy}
-                                                            className="fill-foreground text-3xl font-bold"
-                                                        >
-                                                            {
-                                                                pagination.totalItems
-                                                            }
-                                                        </tspan>
-                                                        <tspan
-                                                            x={viewBox.cx}
-                                                            y={
-                                                                (viewBox.cy ||
-                                                                    0) + 24
-                                                            }
-                                                            className="fill-muted-foreground"
-                                                        >
-                                                            Total
-                                                        </tspan>
-                                                    </text>
-                                                );
-                                            }
-                                        }}
-                                    />
-                                </Pie>
-                            </PieChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-
-                {/* Entity Type Bar */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Entity Types</CardTitle>
-                        <CardDescription>Logs by entity</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig}>
-                            <BarChart
-                                width={300}
-                                height={280}
-                                data={entityData}
-                            >
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <ChartTooltip
-                                    content={
-                                        <ChartTooltipContent
-                                            hideLabel={false}
-                                        />
-                                    }
-                                />
-                                <Bar
-                                    dataKey="value"
-                                    fill="#22c55e"
-                                    radius={[6, 6, 0, 0]}
-                                />
-                            </BarChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-
-                {/* User Activity Bar */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Top Users</CardTitle>
-                        <CardDescription>Most active users</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig}>
-                            <BarChart
-                                width={300}
-                                height={280}
-                                data={userActivityData}
-                                layout="vertical"
-                            >
-                                <XAxis type="number" />
-                                <YAxis
-                                    type="category"
-                                    dataKey="name"
-                                    width={80}
-                                />
-                                <ChartTooltip
-                                    content={
-                                        <ChartTooltipContent
-                                            hideLabel={false}
-                                        />
-                                    }
-                                />
-                                <Bar
-                                    dataKey="count"
-                                    fill="#a855f7"
-                                    radius={[0, 6, 6, 0]}
-                                />
-                            </BarChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Time-based Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {hourlyData.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Hourly Activity</CardTitle>
-                            <CardDescription>
-                                Activity distribution by hour
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ChartContainer config={chartConfig}>
-                                <LineChart
-                                    width={undefined}
-                                    height={250}
-                                    data={hourlyData}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="hour" />
-                                    <YAxis />
-                                    <ChartTooltip
-                                        content={
-                                            <ChartTooltipContent
-                                                hideLabel={false}
-                                            />
-                                        }
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="count"
-                                        stroke="#0ea5e9"
-                                        strokeWidth={2}
-                                        dot={{ fill: '#0ea5e9' }}
-                                    />
-                                </LineChart>
-                            </ChartContainer>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {dailyData.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Daily Activity Trend</CardTitle>
-                            <CardDescription>
-                                Last 30 days activity
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ChartContainer config={chartConfig}>
-                                <LineChart
-                                    width={undefined}
-                                    height={250}
-                                    data={dailyData}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" />
-                                    <YAxis />
-                                    <ChartTooltip
-                                        content={
-                                            <ChartTooltipContent
-                                                hideLabel={false}
-                                            />
-                                        }
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="count"
-                                        stroke="#22c55e"
-                                        strokeWidth={2}
-                                        dot={{ fill: '#22c55e' }}
-                                    />
-                                </LineChart>
-                            </ChartContainer>
-                        </CardContent>
-                    </Card>
+            {/* KPI Cards */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {loadingAnalytics ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-24 w-full rounded-xl" />
+                    ))
+                ) : (
+                    <>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Today</CardTitle>
+                                <CardDescription>Leads created today</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">
+                                    {analytics?.data?.summary?.today ?? 0}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>This Month</CardTitle>
+                                <CardDescription>
+                                    Leads created this month
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">
+                                    {analytics?.data?.summary?.month ?? 0}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>This Year</CardTitle>
+                                <CardDescription>
+                                    Leads created this year
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">
+                                    {analytics?.data?.summary?.year ?? 0}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Total</CardTitle>
+                                <CardDescription>All-time leads</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">
+                                    {analytics?.data?.summary?.total ?? 0}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </>
                 )}
             </div>
 
-            {/* Logs Table */}
+            {/* User Lead Statistics Bar Chart */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Activity Logs</CardTitle>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5" />
+                                User Lead Creation Statistics
+                            </CardTitle>
+                            <CardDescription>
+                                Compare lead creation across users (hover for details)
+                            </CardDescription>
+                        </div>
+                        <Select
+                            value={barChartPeriod}
+                            onValueChange={setBarChartPeriod}
+                        >
+                            <SelectTrigger className="w-[140px]">
+                                <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="hourly">Hourly</SelectItem>
+                                <SelectItem value="daily">Daily</SelectItem>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-96">
+                        {loadingUserStats ? (
+                            <Skeleton className="h-full w-full rounded-md" />
+                        ) : transformedBarChartData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={transformedBarChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis
+                                        dataKey="period"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={80}
+                                    />
+                                    <YAxis />
+                                    <Tooltip content={<CustomBarTooltip />} />
+                                    <Legend />
+                                    {uniqueUsers.map((user: string, index: number) => (
+                                        <Bar
+                                            key={user}
+                                            dataKey={user}
+                                            fill={COLORS[index % COLORS.length]}
+                                            stackId="a"
+                                        />
+                                    ))}
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                No data available for selected period
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Top Users Pie Chart */}
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <Users className="w-5 h-5" />
+                                Top Users by Lead Creation
+                            </CardTitle>
+                            <CardDescription>
+                                Top 10 users ranked by total leads created
+                            </CardDescription>
+                        </div>
+                        <Select
+                            value={pieChartPeriod}
+                            onValueChange={setPieChartPeriod}
+                        >
+                            <SelectTrigger className="w-[140px]">
+                                <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="hourly">Hourly</SelectItem>
+                                <SelectItem value="daily">Daily (30 days)</SelectItem>
+                                <SelectItem value="monthly">Monthly (1 year)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-96">
+                        {loadingPieChart ? (
+                            <Skeleton className="h-full w-full rounded-md" />
+                        ) : pieChartData?.data && pieChartData.data.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={pieChartData.data}
+                                        dataKey="totalCount"
+                                        nameKey="userName"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={120}
+                                        label={(entry) =>
+                                            `${entry.userName}: ${entry.totalCount}`
+                                        }
+                                    >
+                                        {pieChartData.data.map((_: any, index: number) => (
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<CustomPieTooltip />} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                No data available for selected period
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Lead Growth Trends */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Lead Growth Trends</CardTitle>
                     <CardDescription>
-                        Detailed log entries (Page {pagination.currentPage} of{' '}
-                        {pagination.totalPages})
+                        Hourly, daily, and monthly analytics
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="">Sr</TableHead>
-                                <TableHead className="w-[180px]">
-                                    Timestamp
-                                </TableHead>
-                                <TableHead>Action</TableHead>
-                                <TableHead>Entity</TableHead>
-                                <TableHead className="max-w-[300px]">
-                                    Description
-                                </TableHead>
-                                <TableHead>User</TableHead>
-                                <TableHead className="hidden lg:table-cell">
-                                    IP Address
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {logs.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={7}
-                                        className="text-center text-muted-foreground py-8"
-                                    >
-                                        No logs found matching your filters
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                logs.map((log: ILog) => (
-                                    <TableRow key={log._id}>
-                                        <TableCell>
-                                            {logs.indexOf(log) + 1}
-                                        </TableCell>
-                                        <TableCell className="font-mono text-xs">
-                                            {new Date(
-                                                log.createdAt
-                                            ).toLocaleString('en-US', {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </TableCell>
-                                        <TableCell>
-                                            {getActionBadge(log.action)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {getEntityBadge(log.entityType)}
-                                        </TableCell>
-                                        <TableCell
-                                            className="max-w-[300px] truncate"
-                                            title={log.description}
-                                        >
-                                            {log.description || '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                {log.user?.image && (
-                                                    <Image
-                                                        src={log.user.image}
-                                                        width={24}
-                                                        height={24}
-                                                        alt=""
-                                                        className="rounded-full"
-                                                    />
-                                                )}
-                                                <span className="text-sm">
-                                                    {log.user?.firstName
-                                                        ? `${
-                                                              log.user.firstName
-                                                          } ${
-                                                              log.user
-                                                                  .lastName ||
-                                                              ''
-                                                          }`
-                                                        : 'System'}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell font-mono text-xs">
-                                            {log.ip || '-'}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                <CardContent>
+                    <Tabs defaultValue="daily" className="w-full">
+                        <TabsList>
+                            <TabsTrigger value="hourly">Hourly</TabsTrigger>
+                            <TabsTrigger value="daily">Daily</TabsTrigger>
+                            <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                        </TabsList>
 
-                    {/* Pagination */}
-                    {pagination.totalPages > 1 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t">
-                            <div className="text-sm text-muted-foreground">
-                                Showing{' '}
-                                {(pagination.currentPage - 1) *
-                                    pagination.limit +
-                                    1}{' '}
-                                to{' '}
-                                {Math.min(
-                                    pagination.currentPage * pagination.limit,
-                                    pagination.totalItems
-                                )}{' '}
-                                of {pagination.totalItems} logs
+                        <TabsContent value="hourly">
+                            <div className="h-80">
+                                {loadingAnalytics ? (
+                                    <Skeleton className="h-80 w-full rounded-md" />
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={hourlyData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis
+                                                dataKey="hour"
+                                                label={{
+                                                    value: 'Hour',
+                                                    position: 'insideBottom',
+                                                    offset: -5,
+                                                }}
+                                            />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="count"
+                                                stroke="#009999"
+                                                strokeWidth={2}
+                                                dot
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                        handlePageChange(
-                                            pagination.currentPage - 1
-                                        )
-                                    }
-                                    disabled={pagination.currentPage === 1}
-                                >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    Previous
-                                </Button>
-                                <div className="text-sm font-medium px-2">
-                                    Page {pagination.currentPage} of{' '}
-                                    {pagination.totalPages}
+                        </TabsContent>
+
+                        <TabsContent value="daily">
+                            <div className="h-80">
+                                {loadingAnalytics ? (
+                                    <Skeleton className="h-80 w-full rounded-md" />
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={dailyData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="date" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="count"
+                                                stroke="#ff6a00"
+                                                strokeWidth={2}
+                                                dot
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="monthly">
+                            <div className="h-80">
+                                {loadingAnalytics ? (
+                                    <Skeleton className="h-80 w-full rounded-md" />
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={monthlyData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="month" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="count"
+                                                stroke="#2563eb"
+                                                strokeWidth={2}
+                                                dot
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+
+            {/* All Users Table */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>All Users (Excluding Admins)</CardTitle>
+                    <CardDescription>
+                        Complete user list with lead statistics
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {loadingUsersTable ? (
+                        <Skeleton className="h-96 w-full rounded-md" />
+                    ) : (
+                        <>
+                            <div className="flex justify-end pb-3">
+                                <Input
+                                    placeholder="Search users..."
+                                    value={tableSearch}
+                                    onChange={(e) => setTableSearch(e.target.value)}
+                                    className="max-w-xs"
+                                />
+                            </div>
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>User</TableHead>
+                                            <TableHead>Email</TableHead>
+                                            <TableHead>Role</TableHead>
+                                            <TableHead className="text-right">
+                                                New Leads
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Not New
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Total Leads
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {usersTable?.users?.length ? (
+                                            usersTable.users.map(
+                                                (
+                                                    u: {
+                                                        image: string;
+                                                        firstName: string;
+                                                        lastName: string;
+                                                        email: string;
+                                                        role: string;
+                                                        newLeads: number;
+                                                        notNewLeads: number;
+                                                        totalLeads: number;
+                                                    },
+                                                    idx: number
+                                                ) => (
+                                                    <TableRow key={idx}>
+                                                        <TableCell className="flex items-center gap-3">
+                                                            <Avatar>
+                                                                <AvatarImage
+                                                                    src={u.image || ''}
+                                                                />
+                                                                <AvatarFallback>
+                                                                    {u.firstName?.[0] ?? '?'}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <p className="font-medium">
+                                                                    {u.firstName} {u.lastName}
+                                                                </p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>{u.email}</TableCell>
+                                                        <TableCell>
+                                                            <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-primary/10 text-primary">
+                                                                {u.role}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold text-green-600">
+                                                            {u.newLeads}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold text-blue-600">
+                                                            {u.notNewLeads}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-bold">
+                                                            {u.totalLeads}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            )
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={6}
+                                                    className="text-center text-muted-foreground h-32"
+                                                >
+                                                    No user data found.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Pagination */}
+                            {usersTable?.pagination && (
+                                <div className="flex items-center justify-between pt-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Showing {usersTable.users.length} of{' '}
+                                        {usersTable.pagination.totalItems} users
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() =>
+                                                setTablePage((prev) =>
+                                                    Math.max(1, prev - 1)
+                                                )
+                                            }
+                                            disabled={tablePage === 1}
+                                            className="px-3 py-1 border rounded disabled:opacity-50"
+                                        >
+                                            Previous
+                                        </button>
+                                        <span className="px-3 py-1">
+                                            Page {tablePage} of{' '}
+                                            {usersTable.pagination.totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() =>
+                                                setTablePage((prev) =>
+                                                    Math.min(
+                                                        usersTable.pagination
+                                                            .totalPages,
+                                                        prev + 1
+                                                    )
+                                                )
+                                            }
+                                            disabled={
+                                                tablePage ===
+                                                usersTable.pagination.totalPages
+                                            }
+                                            className="px-3 py-1 border rounded disabled:opacity-50"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                        handlePageChange(
-                                            pagination.currentPage + 1
-                                        )
-                                    }
-                                    disabled={
-                                        pagination.currentPage >=
-                                        pagination.totalPages
-                                    }
-                                >
-                                    Next
-                                    <ChevronRight className="h-4 w-4 ml-1" />
-                                </Button>
-                            </div>
-                        </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
