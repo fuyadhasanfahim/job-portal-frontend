@@ -76,46 +76,7 @@ const leadSchema = z.object({
     }),
     address: z.string().optional(),
     country: z.string().min(1, 'Country is required'),
-    status: z.enum([
-        'new',
-        'busy',
-        'interested',
-        'not-interested',
-        'call-back',
-        'test-trial',
-        'on-board',
-        'no-answer',
-        'email/whatsApp-sent',
-        'language-barrier',
-        'invalid-number',
-    ]),
     notes: z.string().optional(),
-    activities: z
-        .array(
-            z.object({
-                status: z.enum([
-                    'new',
-                    'busy',
-                    'interested',
-                    'not-interested',
-                    'call-back',
-                    'test-trial',
-                    'on-board',
-                    'no-answer',
-                    'email/whatsApp-sent',
-                    'language-barrier',
-                    'invalid-number',
-                ]),
-                notes: z.string().optional(),
-                nextAction: z
-                    .enum(['follow-up', 'send-proposal', 'call-back', 'close'])
-                    .optional(),
-                dueAt: z.date().optional(),
-                byUser: z.string().optional(),
-                at: z.date(),
-            })
-        )
-        .optional(),
     contactPersons: z
         .array(contactPersonSchema)
         .min(1, 'At least one contact person is required'),
@@ -134,7 +95,6 @@ export default function RootLeadsEditPage() {
     } = useGetLeadByIdQuery(id, { skip: !id });
     const [updateLead, { isLoading: updating }] = useUpdateLeadMutation();
 
-    const [open, setOpen] = useState(false);
     const isLoading = loadingLead || updating;
 
     const form = useForm<LeadFormValues>({
@@ -153,15 +113,6 @@ export default function RootLeadsEditPage() {
             address: '',
             country: '',
             notes: '',
-            status: 'new',
-            activities: [
-                {
-                    status: 'new',
-                    nextAction: undefined,
-                    dueAt: undefined,
-                    at: new Date(),
-                },
-            ],
         },
     });
 
@@ -173,16 +124,8 @@ export default function RootLeadsEditPage() {
     useEffect(() => {
         if (data?.lead) {
             const lead = data.lead;
-            // Convert date strings to Date objects
             const formattedLead = {
                 ...lead,
-                activities: lead.activities?.map((activity: IActivity) => ({
-                    ...activity,
-                    dueAt: activity.dueAt
-                        ? new Date(activity.dueAt)
-                        : undefined,
-                    at: activity.at ? new Date(activity.at) : new Date(),
-                })),
             };
             form.reset(formattedLead);
         }
@@ -192,7 +135,7 @@ export default function RootLeadsEditPage() {
         try {
             const res = await updateLead({ id, body: values }).unwrap();
             if (res.success) {
-                toast.success('✅ Lead updated successfully!');
+                toast.success('Lead updated successfully!');
                 router.push('/leads');
             } else {
                 toast.error(res.message || 'Update failed.');
@@ -570,139 +513,18 @@ export default function RootLeadsEditPage() {
                             Add Another Contact Person
                         </Button>
 
-                        <Card className="shadow-none">
-                            <CardContent>
-                                <div className="flex items-start justify-between gap-6">
-                                    {/* Status */}
-                                    <div className="space-y-2 w-full">
-                                        <Label>Status *</Label>
-                                        <Select
-                                            value={form.watch('status') || ''}
-                                            onValueChange={(v) =>
-                                                form.setValue(
-                                                    'status',
-                                                    v as LeadFormValues['status']
-                                                )
-                                            }
-                                        >
-                                            <SelectTrigger className="w-full capitalize">
-                                                <SelectValue placeholder="Select Status" />
-                                            </SelectTrigger>
-                                            <SelectContent className="capitalize">
-                                                {statusList.map((s) => (
-                                                    <SelectItem
-                                                        key={s}
-                                                        value={s}
-                                                    >
-                                                        {s}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Next Action */}
-                                    <div className="space-y-2 w-full">
-                                        <Label>Next Action</Label>
-                                        <Select
-                                            value={
-                                                form.watch(
-                                                    'activities.0.nextAction'
-                                                ) || ''
-                                            }
-                                            onValueChange={(v) =>
-                                                form.setValue(
-                                                    'activities.0.nextAction',
-                                                    v as IActivity['nextAction']
-                                                )
-                                            }
-                                        >
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Select next action" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="follow-up">
-                                                    Follow Up
-                                                </SelectItem>
-                                                <SelectItem value="send-proposal">
-                                                    Send Proposal
-                                                </SelectItem>
-                                                <SelectItem value="call-back">
-                                                    Call Back
-                                                </SelectItem>
-                                                <SelectItem value="close">
-                                                    Close
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Due Date */}
-                                    <div className="flex flex-col gap-2 w-full">
-                                        <Label>Due Date</Label>
-                                        <Popover
-                                            open={open}
-                                            onOpenChange={setOpen}
-                                        >
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    className="justify-between"
-                                                >
-                                                    {(() => {
-                                                        const dueAt =
-                                                            form.watch(
-                                                                'activities.0.dueAt'
-                                                            );
-                                                        return dueAt
-                                                            ? format(
-                                                                  dueAt,
-                                                                  'PPP'
-                                                              )
-                                                            : 'Select date';
-                                                    })()}
-                                                    <ChevronDownIcon />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent
-                                                className="w-auto p-0"
-                                                align="start"
-                                            >
-                                                <Calendar
-                                                    selected={form.watch(
-                                                        'activities.0.dueAt'
-                                                    )}
-                                                    onSelect={(v) => {
-                                                        form.setValue(
-                                                            'activities.0.dueAt',
-                                                            v as IActivity['dueAt']
-                                                        );
-                                                        setOpen(false);
-                                                    }}
-                                                    mode="single"
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Notes</Label>
-                                    <Textarea
-                                        {...form.register('notes')}
-                                        placeholder="Additional notes..."
-                                    />
-                                    {form.formState.errors?.notes && (
-                                        <p className="text-sm text-red-600">
-                                            {
-                                                form.formState.errors.notes
-                                                    .message
-                                            }
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <div className="space-y-2">
+                            <Label>Notes</Label>
+                            <Textarea
+                                {...form.register('notes')}
+                                placeholder="Additional notes..."
+                            />
+                            {form.formState.errors?.notes && (
+                                <p className="text-sm text-red-600">
+                                    {form.formState.errors.notes.message}
+                                </p>
+                            )}
+                        </div>
                     </CardContent>
                     <CardFooter className="flex gap-4">
                         <Button type="submit" disabled={isLoading}>
