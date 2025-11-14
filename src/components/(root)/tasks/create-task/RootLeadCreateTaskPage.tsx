@@ -112,7 +112,7 @@ export default function RootLeadCreateTaskPage() {
             const res = await createTask({
                 title: `Lead Assignment - ${new Date().toLocaleDateString()}`,
                 description: `Lead generation task assigned to ${assignedUserId}`,
-                type: 'lead_generation',
+                type: 'cold_call',
                 quantity: selectedLeads.length,
                 assignedTo: assignedUserId,
                 leads: selectedLeads,
