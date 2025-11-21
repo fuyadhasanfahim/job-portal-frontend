@@ -160,6 +160,8 @@ export default function LeadForm() {
         try {
             const res = await newLead(values).unwrap();
 
+            console.log(res);
+
             if (res.success) {
                 if (res.duplicate) {
                     toast.warning(
