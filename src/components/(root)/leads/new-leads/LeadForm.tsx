@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,20 +24,25 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconRefresh } from '@tabler/icons-react';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
-import { useNewLeadMutation } from '@/redux/features/lead/leadApi';
+import {
+    useNewLeadMutation,
+    useLazySearchLeadByCompanyQuery,
+    useAddContactPersonMutation,
+} from '@/redux/features/lead/leadApi';
 import { CountrySelect } from '@/components/shared/CountrySelect';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, InfoIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { IActivity } from '@/types/lead.interface';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const status = [
     'new',
@@ -118,6 +123,22 @@ const leadSchema = z.object({
 
 type LeadFormValues = z.infer<typeof leadSchema>;
 
+interface ExistingLead {
+    _id: string;
+    company: { name: string; website: string };
+    address?: string;
+    country: string;
+    notes?: string;
+    status: string;
+    contactPersons: Array<{
+        firstName?: string;
+        lastName?: string;
+        designation?: string;
+        emails: string[];
+        phones: string[];
+    }>;
+}
+
 export default function LeadForm() {
     const form = useForm<LeadFormValues>({
         resolver: zodResolver(leadSchema),
@@ -148,53 +169,180 @@ export default function LeadForm() {
     });
 
     const [open, setOpen] = useState(false);
+    const [existingLead, setExistingLead] = useState<ExistingLead | null>(null);
+    const [isAddingContactMode, setIsAddingContactMode] = useState(false);
+    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const [newLead, { isLoading }] = useNewLeadMutation();
+    const [searchLead] = useLazySearchLeadByCompanyQuery();
+    const [addContactPerson, { isLoading: isAddingContact }] =
+        useAddContactPersonMutation();
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, replace } = useFieldArray({
         control: form.control,
         name: 'contactPersons',
     });
 
-    const onSubmit = async (values: LeadFormValues) => {
-        try {
-            const res = await newLead(values).unwrap();
+    // Debounced search function
+    const debouncedSearch = useCallback(
+        async (companyName: string, website: string) => {
+            if (!companyName && !website) {
+                setExistingLead(null);
+                setIsAddingContactMode(false);
+                return;
+            }
 
-            if (res.success) {
-                if (res.duplicate) {
-                    toast.warning(
-                        res.message ||
-                            'Duplicate lead found with same company name & website.'
+            try {
+                const result = await searchLead({
+                    name: companyName || undefined,
+                    website: website || undefined,
+                }).unwrap();
+
+                if (result.found && result.lead) {
+                    setExistingLead(result.lead);
+                    setIsAddingContactMode(true);
+
+                    // Auto-fill form with existing lead data
+                    form.setValue('company.name', result.lead.company.name);
+                    form.setValue(
+                        'company.website',
+                        result.lead.company.website || ''
+                    );
+                    form.setValue('address', result.lead.address || '');
+                    form.setValue('country', result.lead.country);
+                    form.setValue('notes', result.lead.notes || '');
+                    form.setValue(
+                        'status',
+                        result.lead.status as LeadFormValues['status']
+                    );
+
+                    // Clear contact persons and add empty one for new contact
+                    replace([
+                        {
+                            firstName: '',
+                            lastName: '',
+                            designation: '',
+                            emails: [''],
+                            phones: [''],
+                        },
+                    ]);
+
+                    toast.info(
+                        `Existing lead found: "${result.lead.company.name}". Add a new contact person below.`
                     );
                 } else {
-                    toast.success(res.message || 'Lead created successfully!');
-                    form.reset({
-                        company: { name: '', website: '' },
-                        contactPersons: [
-                            {
-                                firstName: '',
-                                lastName: '',
-                                designation: '',
-                                emails: [''],
-                                phones: [''],
-                            },
-                        ],
-                        address: '',
-                        country: '',
-                        notes: '',
-                        status: 'new',
-                        activities: [
-                            {
-                                status: 'new',
-                                nextAction: undefined,
-                                dueAt: undefined,
-                                at: new Date(),
-                            },
-                        ],
-                    });
+                    setExistingLead(null);
+                    setIsAddingContactMode(false);
+                }
+            } catch {
+                // Silently fail - user can still create new lead
+                setExistingLead(null);
+                setIsAddingContactMode(false);
+            }
+        },
+        [searchLead, form, replace]
+    );
+
+    // Watch company name and website for changes
+    const companyName = form.watch('company.name');
+    const companyWebsite = form.watch('company.website');
+
+    useEffect(() => {
+        // Clear previous timer
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
+        // Don't search if in add contact mode (already found a lead)
+        if (isAddingContactMode && existingLead) {
+            return;
+        }
+
+        // Debounce the search
+        debounceTimerRef.current = setTimeout(() => {
+            if (companyName || companyWebsite) {
+                debouncedSearch(companyName || '', companyWebsite || '');
+            }
+        }, 500);
+
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
+    }, [companyName, companyWebsite, debouncedSearch, isAddingContactMode, existingLead]);
+
+    const resetForm = () => {
+        setExistingLead(null);
+        setIsAddingContactMode(false);
+        form.reset({
+            company: { name: '', website: '' },
+            contactPersons: [
+                {
+                    firstName: '',
+                    lastName: '',
+                    designation: '',
+                    emails: [''],
+                    phones: [''],
+                },
+            ],
+            address: '',
+            country: '',
+            notes: '',
+            status: 'new',
+            activities: [
+                {
+                    status: 'new',
+                    nextAction: undefined,
+                    dueAt: undefined,
+                    at: new Date(),
+                },
+            ],
+        });
+    };
+
+    const onSubmit = async (values: LeadFormValues) => {
+        try {
+            if (isAddingContactMode && existingLead) {
+                // Add contact person to existing lead
+                const contactPerson = values.contactPersons[0];
+                if (!contactPerson) {
+                    toast.error('Please add contact person details.');
+                    return;
+                }
+
+                const res = await addContactPerson({
+                    leadId: existingLead._id,
+                    contactPerson,
+                }).unwrap();
+
+                if (res.success) {
+                    toast.success(
+                        res.message || 'Contact person added successfully!'
+                    );
+                    resetForm();
+                } else {
+                    toast.error(res.message || 'Failed to add contact person.');
                 }
             } else {
-                toast.error(res.message || 'Failed to create lead.');
+                // Create new lead
+                const res = await newLead(values).unwrap();
+
+                if (res.success) {
+                    if (res.duplicate) {
+                        toast.warning(
+                            res.message ||
+                            'Duplicate lead found with same company name & website.'
+                        );
+                    } else {
+                        toast.success(
+                            res.message || 'Lead created successfully!'
+                        );
+                        resetForm();
+                    }
+                } else {
+                    toast.error(res.message || 'Failed to create lead.');
+                }
             }
         } catch (error) {
             console.error(error);
@@ -210,6 +358,36 @@ export default function LeadForm() {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="max-w-5xl mx-auto mt-6 space-y-8"
             >
+                {/* Existing Lead Alert */}
+                {isAddingContactMode && existingLead && (
+                    <Alert className="border-blue-200 bg-blue-50">
+                        <InfoIcon className="h-4 w-4 text-blue-600" />
+                        <AlertTitle className="text-blue-800">
+                            Existing Lead Found
+                        </AlertTitle>
+                        <AlertDescription className="text-blue-700">
+                            This company already exists in your leads. The form
+                            has been pre-filled with existing data. Add a new
+                            contact person below.
+                            <br />
+                            <span className="font-medium">
+                                Existing contacts:{' '}
+                                {existingLead.contactPersons.length}
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="ml-4"
+                                onClick={resetForm}
+                            >
+                                <IconRefresh className="h-4 w-4 mr-1" />
+                                Start Fresh
+                            </Button>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Company Information</CardTitle>
@@ -224,6 +402,7 @@ export default function LeadForm() {
                                 <Input
                                     {...form.register('company.name')}
                                     placeholder="Enter company name"
+                                    disabled={isAddingContactMode}
                                 />
                                 {form.formState.errors.company?.name && (
                                     <p className="text-sm text-red-600">
@@ -239,6 +418,7 @@ export default function LeadForm() {
                                 <Input
                                     {...form.register('company.website')}
                                     placeholder="https://example.com"
+                                    disabled={isAddingContactMode}
                                 />
                                 {form.formState.errors.company?.website && (
                                     <p className="text-sm text-red-600">
@@ -258,6 +438,7 @@ export default function LeadForm() {
                                 <Input
                                     {...form.register('address')}
                                     placeholder="Enter address"
+                                    disabled={isAddingContactMode}
                                 />
                                 {form.formState.errors?.address && (
                                     <p className="text-sm text-red-600">
@@ -273,6 +454,7 @@ export default function LeadForm() {
                                     onChange={(val) =>
                                         form.setValue('country', val)
                                     }
+                                    disabled={isAddingContactMode}
                                 />
                                 {form.formState.errors?.country && (
                                     <p className="text-sm text-red-600">
@@ -286,9 +468,15 @@ export default function LeadForm() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Contact Person(s)</CardTitle>
+                        <CardTitle>
+                            {isAddingContactMode
+                                ? 'Add New Contact Person'
+                                : 'Contact Person(s)'}
+                        </CardTitle>
                         <CardDescription>
-                            Add one or more contact persons.
+                            {isAddingContactMode
+                                ? 'Add a new contact person to this existing lead.'
+                                : 'Add one or more contact persons.'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -318,18 +506,23 @@ export default function LeadForm() {
                                 >
                                     <div className="flex justify-between items-center">
                                         <h3 className="font-semibold">
-                                            Contact Person {index + 1}
+                                            {isAddingContactMode
+                                                ? 'New Contact Person'
+                                                : `Contact Person ${index + 1}`}
                                         </h3>
-                                        {fields.length > 1 && (
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="icon"
-                                                onClick={() => remove(index)}
-                                            >
-                                                <IconTrash className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                        {fields.length > 1 &&
+                                            !isAddingContactMode && (
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    onClick={() =>
+                                                        remove(index)
+                                                    }
+                                                >
+                                                    <IconTrash className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-6">
@@ -344,15 +537,15 @@ export default function LeadForm() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.firstName && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].firstName.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].firstName.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Last Name</Label>
@@ -365,15 +558,15 @@ export default function LeadForm() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.lastName && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].lastName.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].lastName.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
                                     </div>
 
@@ -432,15 +625,15 @@ export default function LeadForm() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.emails && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].emails.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].emails.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
 
                                         {/* Phones */}
@@ -497,15 +690,15 @@ export default function LeadForm() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.phones && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].phones.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].phones.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
 
                                         <div className="space-y-2 col-span-2">
@@ -519,36 +712,38 @@ export default function LeadForm() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.designation && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].designation.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].designation.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() =>
-                                append({
-                                    firstName: '',
-                                    lastName: '',
-                                    designation: '',
-                                    emails: [''],
-                                    phones: [''],
-                                })
-                            }
-                        >
-                            <IconPlus />
-                            Add Another Contact Person
-                        </Button>
+                        {!isAddingContactMode && (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() =>
+                                    append({
+                                        firstName: '',
+                                        lastName: '',
+                                        designation: '',
+                                        emails: [''],
+                                        phones: [''],
+                                    })
+                                }
+                            >
+                                <IconPlus />
+                                Add Another Contact Person
+                            </Button>
+                        )}
 
                         <Card className="shadow-none">
                             <CardContent>
@@ -565,6 +760,7 @@ export default function LeadForm() {
                                                     >['status']
                                                 )
                                             }
+                                            disabled={isAddingContactMode}
                                         >
                                             <SelectTrigger className="w-full capitalize">
                                                 <SelectValue
@@ -605,6 +801,7 @@ export default function LeadForm() {
                                                     v as IActivity['nextAction']
                                                 )
                                             }
+                                            disabled={isAddingContactMode}
                                         >
                                             <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="Select next action" />
@@ -645,6 +842,7 @@ export default function LeadForm() {
                                                 <Button
                                                     variant="outline"
                                                     className="justify-between"
+                                                    disabled={isAddingContactMode}
                                                 >
                                                     {(() => {
                                                         const dueAt =
@@ -653,9 +851,9 @@ export default function LeadForm() {
                                                             );
                                                         return dueAt
                                                             ? format(
-                                                                  dueAt,
-                                                                  'PPP'
-                                                              )
+                                                                dueAt,
+                                                                'PPP'
+                                                            )
                                                             : 'Select date';
                                                     })()}
                                                     <ChevronDownIcon />
@@ -697,6 +895,7 @@ export default function LeadForm() {
                                     <Textarea
                                         {...form.register('notes')}
                                         placeholder="Additional notes..."
+                                        disabled={isAddingContactMode}
                                     />
                                     {form.formState.errors?.notes && (
                                         <p className="text-sm text-red-600">
@@ -711,13 +910,22 @@ export default function LeadForm() {
                         </Card>
                     </CardContent>
                     <CardFooter className="flex gap-4">
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading ? <Spinner /> : 'Submit'}
+                        <Button
+                            type="submit"
+                            disabled={isLoading || isAddingContact}
+                        >
+                            {isLoading || isAddingContact ? (
+                                <Spinner />
+                            ) : isAddingContactMode ? (
+                                'Add Contact Person'
+                            ) : (
+                                'Submit'
+                            )}
                         </Button>
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => form.reset()}
+                            onClick={resetForm}
                         >
                             Cancel
                         </Button>

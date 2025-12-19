@@ -15,6 +15,8 @@ import { useSignedUser } from '@/hooks/useSignedUser';
 
 const roles = [
     'all-role',
+    'super-admin',
+    'admin',
     'lead-generator',
     'telemarketer',
     'digital-marketer',

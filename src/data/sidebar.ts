@@ -3,6 +3,7 @@ import {
     IconFileTypeXls,
     IconLayoutDashboard,
     IconLogs,
+    IconTrash,
 } from '@tabler/icons-react';
 
 export const data = [
@@ -30,4 +31,11 @@ export const data = [
         access: ['super-admin', 'admin'],
         icon: IconLogs,
     },
+    {
+        title: 'Trash',
+        url: '/trash',
+        access: ['super-admin', 'admin'],
+        icon: IconTrash,
+    },
 ];
+

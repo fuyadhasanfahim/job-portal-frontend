@@ -39,12 +39,14 @@ type CountrySelectProps = {
     value: string | null;
     onChange: (value: string) => void;
     className?: string;
+    disabled?: boolean;
 };
 
 export function CountrySelect({
     value,
     onChange,
     className,
+    disabled = false,
 }: CountrySelectProps) {
     const [open, setOpen] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -86,6 +88,7 @@ export function CountrySelect({
                             variant="outline"
                             role="combobox"
                             aria-expanded={open}
+                            disabled={disabled}
                             className="flex-1 justify-between capitalize rounded-md border-gray-300 hover:border-gray-400 transition"
                         >
                             {value || 'Select country...'}

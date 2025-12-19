@@ -74,6 +74,29 @@ export const leadApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Leads'],
         }),
+        deleteLead: builder.mutation({
+            query: ({ id, reason }: { id: string; reason?: string }) => ({
+                url: `/leads/${id}`,
+                method: 'DELETE',
+                body: { reason },
+            }),
+            invalidatesTags: ['Leads'],
+        }),
+        searchLeadByCompany: builder.query({
+            query: ({ name, website }: { name?: string; website?: string }) => ({
+                url: '/leads/search-by-company',
+                method: 'GET',
+                params: { name, website },
+            }),
+        }),
+        addContactPerson: builder.mutation({
+            query: ({ leadId, contactPerson }: { leadId: string; contactPerson: unknown }) => ({
+                url: `/leads/${leadId}/add-contact-person`,
+                method: 'POST',
+                body: contactPerson,
+            }),
+            invalidatesTags: ['Leads'],
+        }),
     }),
 });
 
@@ -84,4 +107,8 @@ export const {
     useImportLeadsMutation,
     useNewLeadMutation,
     useUpdateLeadMutation,
+    useDeleteLeadMutation,
+    useLazySearchLeadByCompanyQuery,
+    useAddContactPersonMutation,
 } = leadApi;
+

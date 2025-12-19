@@ -24,7 +24,18 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
     Ellipsis,
     ChevronLeft,
@@ -32,12 +43,12 @@ import {
     Search,
     ChevronDownIcon,
 } from 'lucide-react';
-import { useGetLeadsQuery } from '@/redux/features/lead/leadApi';
+import { useGetLeadsQuery, useDeleteLeadMutation } from '@/redux/features/lead/leadApi';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ILead } from '@/types/lead.interface';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
 import Link from 'next/link';
-import { IconEdit, IconInfoCircle } from '@tabler/icons-react';
+import { IconEdit, IconInfoCircle, IconTrash } from '@tabler/icons-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserFilterSelects } from '@/components/shared/UserFilterSelects';
 import {
@@ -51,6 +62,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { toast } from 'sonner';
 
 type SortOption =
     | 'companyAsc'
@@ -89,8 +101,14 @@ export default function LeadsTable() {
     const [selectedUserId, setSelectedUserId] = useState('all-user');
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [open, setOpen] = useState(false);
+    const [deleteDialog, setDeleteDialog] = useState<{
+        open: boolean;
+        id: string;
+        name: string;
+    }>({ open: false, id: '', name: '' });
 
     const { data: countries } = useGetCountriesQuery({});
+    const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
 
     const getSortParams = () => {
         switch (sort) {
@@ -400,8 +418,8 @@ export default function LeadsTable() {
                                                                         'http'
                                                                     )
                                                                         ? lead
-                                                                              .company
-                                                                              .website
+                                                                            .company
+                                                                            .website
                                                                         : `https://${lead.company.website}`
                                                                 }
                                                                 target="_blank"
@@ -566,6 +584,20 @@ export default function LeadsTable() {
                                                                         Edit
                                                                     </Link>
                                                                 </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() =>
+                                                                        setDeleteDialog({
+                                                                            open: true,
+                                                                            id: lead._id,
+                                                                            name: lead.company.name,
+                                                                        })
+                                                                    }
+                                                                >
+                                                                    <IconTrash className="mr-2 h-4 w-4" />
+                                                                    Delete
+                                                                </DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </TableCell>
@@ -632,6 +664,59 @@ export default function LeadsTable() {
                     </TabsContent>
                 </Tabs>
             </CardContent>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog
+                open={deleteDialog.open}
+                onOpenChange={(open) =>
+                    setDeleteDialog((prev) => ({ ...prev, open }))
+                }
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete{' '}
+                            <strong>&quot;{deleteDialog.name}&quot;</strong>?
+                            This lead will be moved to trash and can be
+                            restored by an admin.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90"
+                            disabled={isDeleting}
+                            onClick={async () => {
+                                try {
+                                    await deleteLead({
+                                        id: deleteDialog.id,
+                                    }).unwrap();
+                                    toast.success(
+                                        `Lead "${deleteDialog.name}" deleted successfully`
+                                    );
+                                    setDeleteDialog({
+                                        open: false,
+                                        id: '',
+                                        name: '',
+                                    });
+                                } catch (error) {
+                                    toast.error(
+                                        (
+                                            error as {
+                                                data?: { message?: string };
+                                            }
+                                        )?.data?.message ||
+                                        'Failed to delete lead'
+                                    );
+                                }
+                            }}
+                        >
+                            {isDeleting ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }
