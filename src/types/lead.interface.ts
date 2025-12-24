@@ -29,7 +29,12 @@ export type LeadStatus =
 export interface IActivity {
     status: LeadStatus;
     notes?: string;
-    nextAction?: 'follow-up' | 'send-proposal' | 'call-back' | 'close' | undefined;
+    nextAction?:
+        | 'follow-up'
+        | 'send-proposal'
+        | 'call-back'
+        | 'close'
+        | undefined;
     dueAt?: Date;
     byUser: { firstName?: string; lastName?: string };
     at: Date;
@@ -44,6 +49,7 @@ export interface ILead {
 
     contactPersons: IContactPerson[];
     status: LeadStatus;
+    group?: { _id: string; name: string; color?: string } | null;
 
     owner: string;
     activities?: IActivity[];

@@ -19,6 +19,7 @@ import {
     IconEdit,
     IconNote,
     IconInfoCircle,
+    IconFolders,
 } from '@tabler/icons-react';
 import type { ILead } from '@/types/lead.interface';
 import { format } from 'date-fns';
@@ -120,6 +121,21 @@ export default function LeadDetailsPage() {
                             {lead.status}
                         </Badge>
                     </div>
+                    {lead.group && (
+                        <div className="flex items-center gap-2">
+                            <IconFolders className="h-4 w-4 text-gray-500" />
+                            <span className="text-gray-500 font-medium">
+                                Group:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                                <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: lead.group.color || '#6366f1' }}
+                                />
+                                <span className="font-medium">{lead.group.name}</span>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -322,9 +338,9 @@ export default function LeadDetailsPage() {
                                         <span className="text-xs text-gray-500">
                                             {a.at
                                                 ? format(
-                                                      new Date(a.at),
-                                                      'PPP, p'
-                                                  )
+                                                    new Date(a.at),
+                                                    'PPP, p'
+                                                )
                                                 : '—'}
                                         </span>
                                     </div>
@@ -343,9 +359,8 @@ export default function LeadDetailsPage() {
                                         <span>By:</span>
                                         <span className="font-medium text-gray-700">
                                             {a.byUser?.firstName
-                                                ? `${a.byUser.firstName} ${
-                                                      a.byUser.lastName ?? ''
-                                                  }`
+                                                ? `${a.byUser.firstName} ${a.byUser.lastName ?? ''
+                                                }`
                                                 : 'User'}
                                         </span>
                                     </div>

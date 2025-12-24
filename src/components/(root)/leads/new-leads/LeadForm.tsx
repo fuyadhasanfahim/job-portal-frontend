@@ -32,6 +32,8 @@ import {
     useLazySearchLeadByCompanyQuery,
     useAddContactPersonMutation,
 } from '@/redux/features/lead/leadApi';
+import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
+import type { IGroup } from '@/types/group.interface';
 import { CountrySelect } from '@/components/shared/CountrySelect';
 import {
     Popover,
@@ -90,6 +92,7 @@ const leadSchema = z.object({
         'language-barrier',
         'invalid-number',
     ]),
+    group: z.string().min(1, 'Group is required'),
     notes: z.string().optional(),
     activities: z
         .array(
@@ -155,6 +158,7 @@ export default function LeadForm() {
             ],
             address: '',
             country: '',
+            group: '',
             notes: '',
             status: 'new',
             activities: [
@@ -177,6 +181,8 @@ export default function LeadForm() {
     const [searchLead] = useLazySearchLeadByCompanyQuery();
     const [addContactPerson, { isLoading: isAddingContact }] =
         useAddContactPersonMutation();
+    const { data: groupsResponse } = useGetGroupsQuery();
+    const groups: IGroup[] = groupsResponse?.data || [];
 
     const { fields, append, remove, replace } = useFieldArray({
         control: form.control,
@@ -215,6 +221,13 @@ export default function LeadForm() {
                         'status',
                         result.lead.status as LeadFormValues['status']
                     );
+                    // Set group - extract ID from populated object if needed
+                    if (result.lead.group) {
+                        const groupId = typeof result.lead.group === 'object' && '_id' in result.lead.group
+                            ? (result.lead.group as { _id: string })._id
+                            : result.lead.group;
+                        form.setValue('group', groupId as string);
+                    }
 
                     // Clear contact persons and add empty one for new contact
                     replace([
@@ -366,19 +379,16 @@ export default function LeadForm() {
                             Existing Lead Found
                         </AlertTitle>
                         <AlertDescription className="text-blue-700">
-                            This company already exists in your leads. The form
-                            has been pre-filled with existing data. Add a new
-                            contact person below.
-                            <br />
-                            <span className="font-medium">
-                                Existing contacts:{' '}
-                                {existingLead.contactPersons.length}
-                            </span>
+                            <p>
+                                This company already exists in your leads with{' '}
+                                <strong>{existingLead.contactPersons.length}</strong> contact person(s).
+                                The company info has been pre-filled. You can add a new contact person below.
+                            </p>
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="ml-4"
+                                className="mt-2"
                                 onClick={resetForm}
                             >
                                 <IconRefresh className="h-4 w-4 mr-1" />
@@ -463,6 +473,38 @@ export default function LeadForm() {
                                 )}
                             </div>
                         </div>
+
+                        {/* Group Select */}
+                        <div className="space-y-2">
+                            <Label>Group *</Label>
+                            <Select
+                                value={form.watch('group') || ''}
+                                onValueChange={(val) => form.setValue('group', val)}
+                                disabled={isAddingContactMode}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select a group" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {groups.map((group) => (
+                                        <SelectItem key={group._id} value={group._id}>
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-2.5 h-2.5 rounded-full"
+                                                    style={{ backgroundColor: group.color || '#6366f1' }}
+                                                />
+                                                {group.name}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {form.formState.errors?.group && (
+                                <p className="text-sm text-red-600">
+                                    {form.formState.errors.group.message}
+                                </p>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -480,6 +522,62 @@ export default function LeadForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        {/* Show existing contact persons when in adding mode */}
+                        {isAddingContactMode && existingLead && existingLead.contactPersons.length > 0 && (
+                            <div className="mb-4">
+                                <h4 className="font-semibold text-gray-700 mb-3">
+                                    Existing Contact Persons ({existingLead.contactPersons.length})
+                                </h4>
+                                <div className="space-y-3">
+                                    {existingLead.contactPersons.map((contact, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <p className="font-medium text-gray-900">
+                                                        {contact.firstName || ''} {contact.lastName || ''}
+                                                        {!contact.firstName && !contact.lastName && (
+                                                            <span className="text-gray-400 italic">No name</span>
+                                                        )}
+                                                    </p>
+                                                    {contact.designation && (
+                                                        <p className="text-sm text-gray-500 mt-0.5">
+                                                            {contact.designation}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <span className="text-gray-500">Email(s): </span>
+                                                    <span className="text-gray-700">
+                                                        {contact.emails?.length > 0
+                                                            ? contact.emails.join(', ')
+                                                            : 'N/A'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500">Phone(s): </span>
+                                                    <span className="text-gray-700">
+                                                        {contact.phones?.length > 0
+                                                            ? contact.phones.join(', ')
+                                                            : 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="border-t border-gray-200 mt-4 pt-4">
+                                    <h4 className="font-semibold text-gray-700 mb-1">Add New Contact</h4>
+                                    <p className="text-sm text-gray-500 mb-3">
+                                        Fill in the details below to add a new contact person to this lead.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                         {fields.map((field, index) => {
                             const contactEmails = form.watch(
                                 `contactPersons.${index}.emails`

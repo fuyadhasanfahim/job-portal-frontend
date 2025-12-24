@@ -44,6 +44,8 @@ import {
     ChevronDownIcon,
 } from 'lucide-react';
 import { useGetLeadsQuery, useDeleteLeadMutation } from '@/redux/features/lead/leadApi';
+import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
+import type { IGroup } from '@/types/group.interface';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ILead } from '@/types/lead.interface';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
@@ -101,6 +103,7 @@ export default function LeadsTable() {
     const [selectedUserId, setSelectedUserId] = useState('all-user');
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [open, setOpen] = useState(false);
+    const [groupFilter, setGroupFilter] = useState<string>('all');
     const [deleteDialog, setDeleteDialog] = useState<{
         open: boolean;
         id: string;
@@ -109,6 +112,8 @@ export default function LeadsTable() {
 
     const { data: countries } = useGetCountriesQuery({});
     const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
+    const { data: groupsResponse } = useGetGroupsQuery();
+    const groups: IGroup[] = groupsResponse?.data || [];
 
     const getSortParams = () => {
         switch (sort) {
@@ -144,6 +149,7 @@ export default function LeadsTable() {
         status,
         selectedUserId,
         date: date ? date.toLocaleDateString('en-CA') : '',
+        group: groupFilter !== 'all' ? groupFilter : undefined,
     });
 
     const leads = data?.data ?? [];
@@ -214,6 +220,33 @@ export default function LeadsTable() {
                                                 className="capitalize"
                                             >
                                                 {c.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Group Filter */}
+                                <Select
+                                    value={groupFilter}
+                                    onValueChange={(val) => {
+                                        setPage(1);
+                                        setGroupFilter(val);
+                                    }}
+                                >
+                                    <SelectTrigger className="w-[140px]">
+                                        <SelectValue placeholder="Group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Groups</SelectItem>
+                                        {groups.map((group) => (
+                                            <SelectItem key={group._id} value={group._id}>
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="w-2.5 h-2.5 rounded-full"
+                                                        style={{ backgroundColor: group.color || '#6366f1' }}
+                                                    />
+                                                    {group.name}
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -354,6 +387,9 @@ export default function LeadsTable() {
                                             Status
                                         </TableHead>
                                         <TableHead className="border">
+                                            Group
+                                        </TableHead>
+                                        <TableHead className="border">
                                             Notes
                                         </TableHead>
                                         <TableHead className="border text-center">
@@ -368,7 +404,7 @@ export default function LeadsTable() {
                                             (_, i) => (
                                                 <TableRow key={i}>
                                                     {Array.from({
-                                                        length: 11,
+                                                        length: 12,
                                                     }).map((__, j) => (
                                                         <TableCell
                                                             key={j}
@@ -522,6 +558,21 @@ export default function LeadsTable() {
                                                         {lead.status.replace(
                                                             /-/g,
                                                             ' '
+                                                        )}
+                                                    </TableCell>
+
+                                                    {/* Group */}
+                                                    <TableCell className="border">
+                                                        {lead.group ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div
+                                                                    className="w-2.5 h-2.5 rounded-full"
+                                                                    style={{ backgroundColor: lead.group.color || '#6366f1' }}
+                                                                />
+                                                                <span className="truncate max-w-[100px]">{lead.group.name}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400">—</span>
                                                         )}
                                                     </TableCell>
 

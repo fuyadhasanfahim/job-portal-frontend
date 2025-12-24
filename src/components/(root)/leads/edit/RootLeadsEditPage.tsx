@@ -9,6 +9,8 @@ import {
     useGetLeadByIdQuery,
     useUpdateLeadMutation,
 } from '@/redux/features/lead/leadApi';
+import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
+import type { IGroup } from '@/types/group.interface';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ChevronDownIcon } from 'lucide-react';
@@ -76,6 +78,7 @@ const leadSchema = z.object({
     }),
     address: z.string().optional(),
     country: z.string().min(1, 'Country is required'),
+    group: z.string().optional().nullable(),
     notes: z.string().optional(),
     contactPersons: z
         .array(contactPersonSchema)
@@ -112,9 +115,13 @@ export default function RootLeadsEditPage() {
             ],
             address: '',
             country: '',
+            group: null,
             notes: '',
         },
     });
+
+    const { data: groupsResponse } = useGetGroupsQuery();
+    const groups: IGroup[] = groupsResponse?.data || [];
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
@@ -124,8 +131,19 @@ export default function RootLeadsEditPage() {
     useEffect(() => {
         if (data?.lead) {
             const lead = data.lead;
+            // Extract group ID: could be populated object, string ID, or null
+            let groupId: string | null = null;
+            if (lead.group) {
+                if (typeof lead.group === 'object' && '_id' in lead.group) {
+                    groupId = (lead.group as { _id: string })._id;
+                } else if (typeof lead.group === 'string') {
+                    groupId = lead.group;
+                }
+            }
+
             const formattedLead = {
                 ...lead,
+                group: groupId,
             };
             form.reset(formattedLead);
         }
@@ -245,6 +263,36 @@ export default function RootLeadsEditPage() {
                                 )}
                             </div>
                         </div>
+
+                        {/* Group Select */}
+                        <div className="space-y-2">
+                            <Label>Group</Label>
+                            <Select
+                                key={form.watch('group') ?? 'no-group'}
+                                value={form.watch('group') ?? undefined}
+                                onValueChange={(val) =>
+                                    form.setValue('group', val === 'none' ? null : val)
+                                }
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select group (optional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">No Group</SelectItem>
+                                    {groups.map((group) => (
+                                        <SelectItem key={group._id} value={group._id}>
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-2.5 h-2.5 rounded-full"
+                                                    style={{ backgroundColor: group.color || '#6366f1' }}
+                                                />
+                                                {group.name}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -308,15 +356,15 @@ export default function RootLeadsEditPage() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.firstName && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].firstName.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].firstName.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Last Name</Label>
@@ -329,15 +377,15 @@ export default function RootLeadsEditPage() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.lastName && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].lastName.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].lastName.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
                                     </div>
 
@@ -396,15 +444,15 @@ export default function RootLeadsEditPage() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.emails && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].emails.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].emails.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
 
                                         <div className="space-y-2">
@@ -460,15 +508,15 @@ export default function RootLeadsEditPage() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.phones && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].phones.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].phones.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
 
                                         <div className="space-y-2 col-span-2">
@@ -482,15 +530,15 @@ export default function RootLeadsEditPage() {
                                             {form.formState.errors
                                                 ?.contactPersons?.[index]
                                                 ?.designation && (
-                                                <p className="text-sm text-red-600">
-                                                    {
-                                                        form.formState.errors
-                                                            .contactPersons[
-                                                            index
-                                                        ].designation.message
-                                                    }
-                                                </p>
-                                            )}
+                                                    <p className="text-sm text-red-600">
+                                                        {
+                                                            form.formState.errors
+                                                                .contactPersons[
+                                                                index
+                                                            ].designation.message
+                                                        }
+                                                    </p>
+                                                )}
                                         </div>
                                     </div>
                                 </div>

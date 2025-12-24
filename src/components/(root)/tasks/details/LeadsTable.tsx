@@ -81,6 +81,7 @@ export default function LeadsTable({
                         <TableHead className="border">Address</TableHead>
                         <TableHead className="border">Country</TableHead>
                         <TableHead className="border">Status</TableHead>
+                        <TableHead className="border">Group</TableHead>
                         <TableHead className="border">Notes</TableHead>
                         <TableHead className="border text-center">Action</TableHead>
                     </TableRow>
@@ -164,7 +165,7 @@ export default function LeadsTable({
                                                 {lead.address || 'N/A'}
                                             </span>
                                         </TooltipTrigger>
-                                        <TooltipContent className="max-w-sm break-words">
+                                        <TooltipContent className="max-w-sm wrap-break-word">
                                             {lead.address || 'N/A'}
                                         </TooltipContent>
                                     </Tooltip>
@@ -180,6 +181,21 @@ export default function LeadsTable({
                                     {lead.status.replace('_', ' ')}
                                 </TableCell>
 
+                                {/* Group */}
+                                <TableCell className="border">
+                                    {lead.group ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <div
+                                                className="w-2.5 h-2.5 rounded-full"
+                                                style={{ backgroundColor: lead.group.color || '#6366f1' }}
+                                            />
+                                            <span className="truncate max-w-[100px]">{lead.group.name}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400">—</span>
+                                    )}
+                                </TableCell>
+
                                 {/* notes */}
                                 <TableCell className="border max-w-[200px] truncate">
                                     <Tooltip>
@@ -189,7 +205,7 @@ export default function LeadsTable({
                                                     'N/A'}
                                             </span>
                                         </TooltipTrigger>
-                                        <TooltipContent className="max-w-sm break-words">
+                                        <TooltipContent className="max-w-sm wrap-break-word">
                                             {lead.activities?.[0]?.notes || 'N/A'}
                                         </TooltipContent>
                                     </Tooltip>

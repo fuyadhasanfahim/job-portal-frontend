@@ -1,6 +1,7 @@
 import {
     IconAd2,
     IconFileTypeXls,
+    IconFolders,
     IconLayoutDashboard,
     IconLogs,
     IconTrash,
@@ -18,6 +19,12 @@ export const data = [
         url: '/leads',
         access: ['super-admin', 'admin', 'lead-generator', 'telemarketer'],
         icon: IconFileTypeXls,
+    },
+    {
+        title: 'Groups',
+        url: '/groups',
+        access: ['super-admin', 'admin'],
+        icon: IconFolders,
     },
     {
         title: 'Tasks',
@@ -38,4 +45,3 @@ export const data = [
         icon: IconTrash,
     },
 ];
-

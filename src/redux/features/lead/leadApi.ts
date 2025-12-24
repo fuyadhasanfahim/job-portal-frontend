@@ -21,6 +21,7 @@ export const leadApi = apiSlice.injectEndpoints({
                 country,
                 date,
                 selectedUserId,
+                group,
             }) => ({
                 url: '/leads/get-leads',
                 method: 'GET',
@@ -34,6 +35,7 @@ export const leadApi = apiSlice.injectEndpoints({
                     country,
                     date,
                     selectedUserId,
+                    group,
                 },
             }),
             providesTags: ['Leads'],
@@ -83,14 +85,26 @@ export const leadApi = apiSlice.injectEndpoints({
             invalidatesTags: ['Leads'],
         }),
         searchLeadByCompany: builder.query({
-            query: ({ name, website }: { name?: string; website?: string }) => ({
+            query: ({
+                name,
+                website,
+            }: {
+                name?: string;
+                website?: string;
+            }) => ({
                 url: '/leads/search-by-company',
                 method: 'GET',
                 params: { name, website },
             }),
         }),
         addContactPerson: builder.mutation({
-            query: ({ leadId, contactPerson }: { leadId: string; contactPerson: unknown }) => ({
+            query: ({
+                leadId,
+                contactPerson,
+            }: {
+                leadId: string;
+                contactPerson: unknown;
+            }) => ({
                 url: `/leads/${leadId}/add-contact-person`,
                 method: 'POST',
                 body: contactPerson,
@@ -111,4 +125,3 @@ export const {
     useLazySearchLeadByCompanyQuery,
     useAddContactPersonMutation,
 } = leadApi;
-
