@@ -42,12 +42,18 @@ import {
     ChevronRight,
     Search,
     ChevronDownIcon,
+    X,
+    UserPlus,
+    Check,
+    Folder,
 } from 'lucide-react';
-import { useGetLeadsQuery, useDeleteLeadMutation } from '@/redux/features/lead/leadApi';
+import { useGetLeadsQuery, useDeleteLeadMutation, useBulkAssignLeadsMutation, useLazyGetAllMatchingLeadIdsQuery, useBulkChangeGroupMutation } from '@/redux/features/lead/leadApi';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
+import { useGetAllUsersQuery } from '@/redux/features/user/userApi';
 import type { IGroup } from '@/types/group.interface';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ILead } from '@/types/lead.interface';
+import { IUser } from '@/types/user.interface';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
 import Link from 'next/link';
 import { IconEdit, IconInfoCircle, IconTrash } from '@tabler/icons-react';
@@ -64,6 +70,8 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useSignedUser } from '@/hooks/useSignedUser';
 import { toast } from 'sonner';
 
 type SortOption =
@@ -104,16 +112,33 @@ export default function LeadsTable() {
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [open, setOpen] = useState(false);
     const [groupFilter, setGroupFilter] = useState<string>('all');
+    const [sourceFilter, setSourceFilter] = useState<string>('all');
     const [deleteDialog, setDeleteDialog] = useState<{
         open: boolean;
         id: string;
         name: string;
     }>({ open: false, id: '', name: '' });
 
+    // Bulk assignment states
+    const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+    const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+    const [assignToUserId, setAssignToUserId] = useState<string>('');
+
+    // Bulk group change states
+    const [groupChangeDialogOpen, setGroupChangeDialogOpen] = useState(false);
+    const [changeToGroupId, setChangeToGroupId] = useState<string>('');
+
+    const { user } = useSignedUser();
+    const isAdmin = user?.role === 'admin' || user?.role === 'super-admin';
+
     const { data: countries } = useGetCountriesQuery({});
     const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
+    const [bulkAssignLeads, { isLoading: isAssigning }] = useBulkAssignLeadsMutation();
+    const [bulkChangeGroup, { isLoading: isChangingGroup }] = useBulkChangeGroupMutation();
+    const [getAllMatchingLeadIds, { isFetching: isLoadingAllIds }] = useLazyGetAllMatchingLeadIdsQuery();
     const { data: groupsResponse } = useGetGroupsQuery();
     const groups: IGroup[] = groupsResponse?.data || [];
+    const { data: usersData } = useGetAllUsersQuery({ includeAdmins: true });
 
     const getSortParams = () => {
         switch (sort) {
@@ -150,6 +175,7 @@ export default function LeadsTable() {
         selectedUserId,
         date: date ? date.toLocaleDateString('en-CA') : '',
         group: groupFilter !== 'all' ? groupFilter : undefined,
+        source: sourceFilter !== 'all' ? sourceFilter : undefined,
     });
 
     const leads = data?.data ?? [];
@@ -322,6 +348,25 @@ export default function LeadsTable() {
                                     </SelectContent>
                                 </Select>
 
+                                {/* Source Filter */}
+                                <Select
+                                    value={sourceFilter}
+                                    onValueChange={(val) => {
+                                        setSourceFilter(val);
+                                        setPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger id="source" className="w-[140px]">
+                                        <SelectValue placeholder="Source" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Sources</SelectItem>
+                                        <SelectItem value="imported">📥 Imported</SelectItem>
+                                        <SelectItem value="manual">✏️ Manual</SelectItem>
+                                        <SelectItem value="website">🌐 Website</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
                                 <UserFilterSelects
                                     selectedRole={selectedRole}
                                     setSelectedRole={setSelectedRole}
@@ -354,11 +399,92 @@ export default function LeadsTable() {
                             </div>
                         </div>
 
+                        {/* Bulk Selection Controls for Admins */}
+                        {isAdmin && pagination.totalItems > 0 && (
+                            <div className="mt-4 flex items-center gap-4 p-3 bg-muted/30 rounded-lg border">
+                                <span className="text-sm text-muted-foreground">
+                                    Total: <strong>{pagination.totalItems}</strong> leads match your filters
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isLoadingAllIds}
+                                    onClick={async () => {
+                                        try {
+                                            const result = await getAllMatchingLeadIds({
+                                                search,
+                                                status: status !== 'all' ? status : undefined,
+                                                country: countryFilter !== 'all' ? countryFilter : undefined,
+                                                selectedUserId: selectedUserId !== 'all-user' ? selectedUserId : undefined,
+                                                group: groupFilter !== 'all' ? groupFilter : undefined,
+                                            }).unwrap();
+
+                                            if (result.leadIds) {
+                                                setSelectedLeads(new Set(result.leadIds));
+                                                toast.success(`Selected ${result.leadIds.length} leads`);
+                                            }
+                                        } catch (error) {
+                                            toast.error('Failed to select all leads');
+                                        }
+                                    }}
+                                    className="gap-2"
+                                >
+                                    {isLoadingAllIds ? (
+                                        <>Loading...</>
+                                    ) : (
+                                        <>
+                                            <Check className="w-4 h-4" />
+                                            Select All {pagination.totalItems} Leads
+                                        </>
+                                    )}
+                                </Button>
+                                {selectedLeads.size > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setSelectedLeads(new Set())}
+                                        className="text-muted-foreground"
+                                    >
+                                        <X className="w-4 h-4 mr-1" />
+                                        Clear Selection ({selectedLeads.size})
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Table */}
                         <div className="mt-6 overflow-hidden">
                             <Table>
                                 <TableHeader className="bg-accent">
                                     <TableRow>
+                                        {isAdmin && (
+                                            <TableHead className="border w-[50px]">
+                                                <Checkbox
+                                                    checked={
+                                                        leads.length > 0 &&
+                                                        leads.every((lead: ILead) =>
+                                                            selectedLeads.has(lead._id)
+                                                        )
+                                                    }
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked) {
+                                                            const newSet = new Set(selectedLeads);
+                                                            leads.forEach((lead: ILead) =>
+                                                                newSet.add(lead._id)
+                                                            );
+                                                            setSelectedLeads(newSet);
+                                                        } else {
+                                                            const newSet = new Set(selectedLeads);
+                                                            leads.forEach((lead: ILead) =>
+                                                                newSet.delete(lead._id)
+                                                            );
+                                                            setSelectedLeads(newSet);
+                                                        }
+                                                    }}
+                                                    aria-label="Select all"
+                                                />
+                                            </TableHead>
+                                        )}
                                         <TableHead className="border">
                                             Company
                                         </TableHead>
@@ -438,7 +564,25 @@ export default function LeadsTable() {
                                                     .join(' ') || 'N/A';
 
                                             return (
-                                                <TableRow key={lead._id}>
+                                                <TableRow key={lead._id} className={selectedLeads.has(lead._id) ? 'bg-primary/5' : ''}>
+                                                    {/* Checkbox */}
+                                                    {isAdmin && (
+                                                        <TableCell className="border">
+                                                            <Checkbox
+                                                                checked={selectedLeads.has(lead._id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const newSet = new Set(selectedLeads);
+                                                                    if (checked) {
+                                                                        newSet.add(lead._id);
+                                                                    } else {
+                                                                        newSet.delete(lead._id);
+                                                                    }
+                                                                    setSelectedLeads(newSet);
+                                                                }}
+                                                                aria-label={`Select ${lead.company.name}`}
+                                                            />
+                                                        </TableCell>
+                                                    )}
                                                     {/* Company */}
                                                     <TableCell className="border font-medium max-w-[200px] truncate">
                                                         {lead.company.name}
@@ -768,6 +912,235 @@ export default function LeadsTable() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Bulk Assign Floating Action Bar */}
+            {isAdmin && selectedLeads.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex items-center gap-4 px-6 py-4 bg-background/95 backdrop-blur-lg border border-border/50 rounded-2xl shadow-2xl">
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                                {selectedLeads.size}
+                            </div>
+                            <span className="text-sm font-medium">leads selected</span>
+                        </div>
+
+                        <div className="w-px h-8 bg-border" />
+
+                        <Select
+                            value={assignToUserId}
+                            onValueChange={setAssignToUserId}
+                        >
+                            <SelectTrigger className="w-[200px] bg-background">
+                                <UserPlus className="w-4 h-4 mr-2 text-muted-foreground" />
+                                <SelectValue placeholder="Assign to..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {usersData?.users?.map((u: IUser) => (
+                                    <SelectItem key={u._id} value={u._id}>
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">
+                                                {u.firstName} {u.lastName}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground capitalize">
+                                                {u.role?.replace(/-/g, ' ')}
+                                            </span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Button
+                            onClick={() => setAssignDialogOpen(true)}
+                            disabled={!assignToUserId || isAssigning}
+                            className="gap-2"
+                            size="sm"
+                        >
+                            {isAssigning ? (
+                                <>
+                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Assigning...
+                                </>
+                            ) : (
+                                <>
+                                    <Check className="w-4 h-4" />
+                                    Assign
+                                </>
+                            )}
+                        </Button>
+
+                        <div className="w-px h-8 bg-border" />
+
+                        {/* Group Change Section */}
+                        <Select
+                            value={changeToGroupId}
+                            onValueChange={setChangeToGroupId}
+                        >
+                            <SelectTrigger className="w-[180px] bg-background">
+                                <Folder className="w-4 h-4 mr-2 text-muted-foreground" />
+                                <SelectValue placeholder="Move to group..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="no-group">
+                                    <span className="text-muted-foreground">No Group</span>
+                                </SelectItem>
+                                {groups.map((g) => (
+                                    <SelectItem key={g._id} value={g._id}>
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className="w-3 h-3 rounded-full"
+                                                style={{ backgroundColor: g.color || '#6b7280' }}
+                                            />
+                                            {g.name}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Button
+                            onClick={() => setGroupChangeDialogOpen(true)}
+                            disabled={!changeToGroupId || isChangingGroup}
+                            className="gap-2"
+                            size="sm"
+                            variant="secondary"
+                        >
+                            {isChangingGroup ? (
+                                <>
+                                    <span className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+                                    Moving...
+                                </>
+                            ) : (
+                                <>
+                                    <Folder className="w-4 h-4" />
+                                    Move
+                                </>
+                            )}
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                setSelectedLeads(new Set());
+                                setAssignToUserId('');
+                                setChangeToGroupId('');
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Assign Confirmation Dialog */}
+            <AlertDialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <UserPlus className="w-5 h-5 text-primary" />
+                            Assign Leads
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to assign{' '}
+                            <strong>{selectedLeads.size} leads</strong> to{' '}
+                            <strong>
+                                {usersData?.users?.find((u: IUser) => u._id === assignToUserId)?.firstName || 'selected user'}
+                            </strong>.
+                            This action will update the owner of all selected leads.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isAssigning}
+                            onClick={async () => {
+                                try {
+                                    const result = await bulkAssignLeads({
+                                        leadIds: Array.from(selectedLeads),
+                                        targetUserId: assignToUserId,
+                                    }).unwrap();
+
+                                    const targetUser = usersData?.users?.find(
+                                        (u: IUser) => u._id === assignToUserId
+                                    );
+
+                                    toast.success(
+                                        `Successfully assigned ${result.results?.success || selectedLeads.size} leads to ${targetUser?.firstName || 'user'}`
+                                    );
+
+                                    setSelectedLeads(new Set());
+                                    setAssignToUserId('');
+                                    setAssignDialogOpen(false);
+                                } catch (error) {
+                                    toast.error(
+                                        (error as { data?: { message?: string } })?.data?.message ||
+                                        'Failed to assign leads'
+                                    );
+                                }
+                            }}
+                        >
+                            {isAssigning ? 'Assigning...' : 'Confirm Assignment'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Bulk Group Change Confirmation Dialog */}
+            <AlertDialog open={groupChangeDialogOpen} onOpenChange={setGroupChangeDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <Folder className="w-5 h-5 text-primary" />
+                            Change Group
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to move{' '}
+                            <strong>{selectedLeads.size} leads</strong> to{' '}
+                            <strong>
+                                {changeToGroupId === 'no-group'
+                                    ? 'No Group'
+                                    : groups.find((g) => g._id === changeToGroupId)?.name || 'selected group'}
+                            </strong>.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isChangingGroup}
+                            onClick={async () => {
+                                try {
+                                    const result = await bulkChangeGroup({
+                                        leadIds: Array.from(selectedLeads),
+                                        targetGroupId: changeToGroupId === 'no-group' ? null : changeToGroupId,
+                                    }).unwrap();
+
+                                    const targetGroup = changeToGroupId === 'no-group'
+                                        ? 'No Group'
+                                        : groups.find((g) => g._id === changeToGroupId)?.name || 'group';
+
+                                    toast.success(
+                                        `Successfully moved ${result.results?.success || selectedLeads.size} leads to "${targetGroup}"`
+                                    );
+
+                                    setSelectedLeads(new Set());
+                                    setChangeToGroupId('');
+                                    setGroupChangeDialogOpen(false);
+                                } catch (error) {
+                                    toast.error(
+                                        (error as { data?: { message?: string } })?.data?.message ||
+                                        'Failed to change group'
+                                    );
+                                }
+                            }}
+                        >
+                            {isChangingGroup ? 'Moving...' : 'Confirm Move'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }
+

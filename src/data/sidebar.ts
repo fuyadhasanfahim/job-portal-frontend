@@ -5,6 +5,7 @@ import {
     IconLayoutDashboard,
     IconLogs,
     IconTrash,
+    IconUserPlus,
 } from '@tabler/icons-react';
 
 export const data = [
@@ -31,6 +32,12 @@ export const data = [
         url: '/tasks',
         access: ['super-admin', 'admin', 'lead-generator', 'telemarketer'],
         icon: IconAd2,
+    },
+    {
+        title: 'Invitations',
+        url: '/invitations',
+        access: ['super-admin', 'admin'],
+        icon: IconUserPlus,
     },
     {
         title: 'Logs',

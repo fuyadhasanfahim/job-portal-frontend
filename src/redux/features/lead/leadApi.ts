@@ -22,6 +22,7 @@ export const leadApi = apiSlice.injectEndpoints({
                 date,
                 selectedUserId,
                 group,
+                source,
             }) => ({
                 url: '/leads/get-leads',
                 method: 'GET',
@@ -36,6 +37,7 @@ export const leadApi = apiSlice.injectEndpoints({
                     date,
                     selectedUserId,
                     group,
+                    source,
                 },
             }),
             providesTags: ['Leads'],
@@ -111,6 +113,53 @@ export const leadApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Leads'],
         }),
+        bulkAssignLeads: builder.mutation({
+            query: ({
+                leadIds,
+                targetUserId,
+            }: {
+                leadIds: string[];
+                targetUserId: string;
+            }) => ({
+                url: '/leads/bulk-assign',
+                method: 'POST',
+                body: { leadIds, targetUserId },
+            }),
+            invalidatesTags: ['Leads'],
+        }),
+        getAllMatchingLeadIds: builder.query({
+            query: ({
+                search,
+                status,
+                country,
+                selectedUserId,
+                group,
+            }: {
+                search?: string;
+                status?: string;
+                country?: string;
+                selectedUserId?: string;
+                group?: string;
+            }) => ({
+                url: '/leads/get-all-matching-ids',
+                method: 'GET',
+                params: { search, status, country, selectedUserId, group },
+            }),
+        }),
+        bulkChangeGroup: builder.mutation({
+            query: ({
+                leadIds,
+                targetGroupId,
+            }: {
+                leadIds: string[];
+                targetGroupId: string | null;
+            }) => ({
+                url: '/leads/bulk-change-group',
+                method: 'POST',
+                body: { leadIds, targetGroupId },
+            }),
+            invalidatesTags: ['Leads'],
+        }),
     }),
 });
 
@@ -124,4 +173,7 @@ export const {
     useDeleteLeadMutation,
     useLazySearchLeadByCompanyQuery,
     useAddContactPersonMutation,
+    useBulkAssignLeadsMutation,
+    useLazyGetAllMatchingLeadIdsQuery,
+    useBulkChangeGroupMutation,
 } = leadApi;

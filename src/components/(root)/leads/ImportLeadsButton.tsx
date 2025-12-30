@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useImportLeadsMutation } from '@/redux/features/lead/leadApi';
+import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import { toast } from 'sonner';
 import {
     Dialog,
@@ -22,6 +23,14 @@ import {
     AccordionTrigger,
 } from '@/components/ui/accordion';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
     IconLoader2,
     IconFileSpreadsheet,
     IconX,
@@ -33,8 +42,10 @@ import {
     IconAlertCircle,
     IconDownload,
     IconInfoCircle,
+    IconFolder,
 } from '@tabler/icons-react';
 import { getClientSocket } from '@/lib/clientSocket';
+import type { IGroup } from '@/types/group.interface';
 
 type ProgressPayload = {
     total: number;
@@ -118,8 +129,11 @@ export default function ImportLeadsButton() {
         useState<ValidationErrorResponse | null>(null);
     const [importResult, setImportResult] =
         useState<ImportSuccessResponse | null>(null);
+    const [selectedGroupId, setSelectedGroupId] = useState<string>('');
 
     const [importLeads, { isLoading }] = useImportLeadsMutation();
+    const { data: groupsData } = useGetGroupsQuery();
+    const groups: IGroup[] = groupsData?.data || [];
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop: (accepted) => {
@@ -181,6 +195,9 @@ export default function ImportLeadsButton() {
         try {
             const formData = new FormData();
             files.forEach((f) => formData.append('files', f));
+            if (selectedGroupId && selectedGroupId !== 'none') {
+                formData.append('groupId', selectedGroupId);
+            }
 
             const res = await importLeads(formData).unwrap();
 
@@ -269,6 +286,7 @@ export default function ImportLeadsButton() {
         setIsSubscribed(false);
         setValidationError(null);
         setImportResult(null);
+        setSelectedGroupId('');
         setOpen(false);
     };
 
@@ -554,12 +572,42 @@ export default function ImportLeadsButton() {
                 {/* File Upload - Before import */}
                 {!uploadId && !validationError && !importResult && (
                     <>
+                        {/* Group Selection */}
+                        <div className="mb-4 space-y-2">
+                            <Label className="flex items-center gap-2">
+                                <IconFolder size={16} />
+                                Assign to Group (Optional)
+                            </Label>
+                            <Select
+                                value={selectedGroupId}
+                                onValueChange={setSelectedGroupId}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select a group..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">No Group</SelectItem>
+                                    {groups.map((group) => (
+                                        <SelectItem key={group._id} value={group._id}>
+                                            <span className="flex items-center gap-2">
+                                                <span
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: group.color || '#6b7280' }}
+                                                />
+                                                {group.name}
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         {files.length === 0 ? (
                             <div
                                 {...getRootProps()}
                                 className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition flex flex-col items-center justify-center gap-3 ${isDragActive
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-muted-foreground/40 hover:border-primary/60'
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-muted-foreground/40 hover:border-primary/60'
                                     }`}
                             >
                                 <input {...getInputProps()} />

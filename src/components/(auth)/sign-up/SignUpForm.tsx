@@ -18,20 +18,31 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SignUpFormValues, signupSchema } from '@/validators/auth.schema';
-import { Check, X } from 'lucide-react';
+import { Check, X, Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useSignupMutation } from '@/redux/features/auth/authApi';
+import { useValidateInvitationQuery } from '@/redux/features/invitation/invitationApi';
 import { toast } from 'sonner';
 import { IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function SignUpForm() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const searchParams = useSearchParams();
+    const token = searchParams.get('token');
+    const router = useRouter();
+
+    // Validate invitation token
+    const { data: invitationData, isLoading: isValidating, error: validationError } = useValidateInvitationQuery(
+        token || '',
+        { skip: !token }
+    );
 
     const form = useForm<SignUpFormValues>({
         resolver: zodResolver(signupSchema),
@@ -44,14 +55,24 @@ export default function SignUpForm() {
         },
     });
 
-    const [signup, { isLoading }] = useSignupMutation();
-    const isDisabled = isLoading || form.formState.isSubmitting;
+    // Pre-fill email when invitation is validated
+    useEffect(() => {
+        if (invitationData?.success && invitationData.invitation?.email) {
+            form.setValue('email', invitationData.invitation.email);
+        }
+    }, [invitationData, form]);
 
-    const router = useRouter();
+    const [signup, { isLoading }] = useSignupMutation();
+    const isDisabled = isLoading || form.formState.isSubmitting || isValidating;
 
     const onSubmit = async (values: SignUpFormValues) => {
+        if (!token) {
+            toast.error('Invalid invitation. Please use the link from your invitation email.');
+            return;
+        }
+
         try {
-            const resPromise = signup(values).unwrap();
+            const resPromise = signup({ ...values, invitationToken: token }).unwrap();
 
             await toast.promise(resPromise, {
                 loading: 'Creating your account...',
@@ -92,6 +113,64 @@ export default function SignUpForm() {
         },
     ];
 
+    // No token provided
+    if (!token) {
+        return (
+            <div className="w-full max-w-md mx-auto">
+                <Alert variant="destructive">
+                    <Shield className="h-4 w-4" />
+                    <AlertTitle>Invitation Required</AlertTitle>
+                    <AlertDescription>
+                        You need a valid invitation to create an account.
+                        Please contact an administrator to get an invitation link.
+                    </AlertDescription>
+                </Alert>
+                <div className="mt-4 text-center">
+                    <Link
+                        href="/sign-in"
+                        className="text-sm text-primary hover:underline"
+                    >
+                        Back to Sign In
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    // Validating token
+    if (isValidating) {
+        return (
+            <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center gap-4 py-12">
+                <IconLoader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Validating invitation...</p>
+            </div>
+        );
+    }
+
+    // Invalid or expired token
+    if (validationError || !invitationData?.success) {
+        return (
+            <div className="w-full max-w-md mx-auto">
+                <Alert variant="destructive">
+                    <Shield className="h-4 w-4" />
+                    <AlertTitle>Invalid Invitation</AlertTitle>
+                    <AlertDescription>
+                        This invitation link is invalid, expired, or has already been used.
+                        Please contact an administrator for a new invitation.
+                    </AlertDescription>
+                </Alert>
+                <div className="mt-4 text-center">
+                    <Link
+                        href="/sign-in"
+                        className="text-sm text-primary hover:underline"
+                    >
+                        Back to Sign In
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="w-full max-w-lg mx-auto">
             <Form {...form}>
@@ -101,13 +180,27 @@ export default function SignUpForm() {
                 >
                     <Card>
                         <CardHeader>
-                            <CardTitle>Create an Account</CardTitle>
+                            <CardTitle>Complete Your Registration</CardTitle>
                             <CardDescription>
-                                Fill in the form below to get started.
+                                You've been invited to join. Fill in the form below to create your account.
                             </CardDescription>
                         </CardHeader>
 
                         <CardContent className="space-y-4">
+                            {/* Invitation Info Banner */}
+                            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-3">
+                                <Mail className="w-5 h-5 text-primary mt-0.5" />
+                                <div className="text-sm">
+                                    <p className="font-medium">Invitation Details</p>
+                                    <p className="text-muted-foreground">
+                                        Email: <span className="font-medium">{invitationData.invitation?.email}</span>
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                        Role: <span className="font-medium capitalize">{invitationData.invitation?.role?.replace(/-/g, ' ')}</span>
+                                    </p>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 items-start gap-6">
                                 {/* First Name */}
                                 <FormField
@@ -146,7 +239,7 @@ export default function SignUpForm() {
                                 />
                             </div>
 
-                            {/* Email */}
+                            {/* Email - Read Only */}
                             <FormField
                                 control={form.control}
                                 name="email"
@@ -156,10 +249,14 @@ export default function SignUpForm() {
                                         <FormControl>
                                             <Input
                                                 type="email"
-                                                placeholder="you@example.com"
                                                 {...field}
+                                                readOnly
+                                                className="bg-muted cursor-not-allowed"
                                             />
                                         </FormControl>
+                                        <p className="text-xs text-muted-foreground">
+                                            Email is set by your invitation and cannot be changed.
+                                        </p>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -244,11 +341,10 @@ export default function SignUpForm() {
                                                         return (
                                                             <div
                                                                 key={idx}
-                                                                className={`flex items-center gap-2 ${
-                                                                    passed
+                                                                className={`flex items-center gap-2 ${passed
                                                                         ? 'text-green-600'
                                                                         : 'text-gray-500'
-                                                                }`}
+                                                                    }`}
                                                             >
                                                                 {passed ? (
                                                                     <Check
@@ -284,9 +380,9 @@ export default function SignUpForm() {
                                 disabled={isDisabled}
                             >
                                 {isDisabled ? (
-                                    <IconLoader2 stroke={2} />
+                                    <IconLoader2 className="animate-spin" />
                                 ) : (
-                                    'Sign Up'
+                                    'Create Account'
                                 )}
                             </Button>
                             <p className="text-sm text-center text-gray-600">

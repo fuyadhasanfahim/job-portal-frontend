@@ -24,6 +24,7 @@ export const authApi = apiSlice.injectEndpoints({
                 email: string;
                 phone: string;
                 password: string;
+                invitationToken: string;
             }
         >({
             query: (body) => ({

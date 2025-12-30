@@ -158,15 +158,6 @@ export default function SignInForm() {
                                     'Sign In'
                                 )}
                             </Button>
-                            <p className="text-sm text-center text-gray-600">
-                                Don&apos;t have an account?{' '}
-                                <Link
-                                    href="/sign-up"
-                                    className="font-medium text-primary hover:underline"
-                                >
-                                    Sign up
-                                </Link>
-                            </p>
                         </CardFooter>
                     </Card>
                 </form>

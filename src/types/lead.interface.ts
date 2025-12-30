@@ -26,6 +26,16 @@ export type LeadStatus =
     | 'language-barrier'
     | 'invalid-number';
 
+export type LeadSource = 'manual' | 'imported' | 'website';
+
+export interface IImportBatch {
+    batchId: string;
+    importedAt: string;
+    importedBy: string;
+    fileName?: string;
+    totalCount?: number;
+}
+
 export interface IActivity {
     status: LeadStatus;
     notes?: string;
@@ -50,6 +60,9 @@ export interface ILead {
     contactPersons: IContactPerson[];
     status: LeadStatus;
     group?: { _id: string; name: string; color?: string } | null;
+
+    source?: LeadSource;
+    importBatch?: IImportBatch;
 
     owner: string;
     activities?: IActivity[];
