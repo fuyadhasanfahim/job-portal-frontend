@@ -685,7 +685,7 @@ export default function LeadsTable() {
                                                                         'N/A'}
                                                                 </span>
                                                             </TooltipTrigger>
-                                                            <TooltipContent className="max-w-sm break-words">
+                                                            <TooltipContent className="max-w-sm wrap-break-word">
                                                                 {lead.address ||
                                                                     'N/A'}
                                                             </TooltipContent>
@@ -733,7 +733,7 @@ export default function LeadsTable() {
                                                                         'N/A'}
                                                                 </span>
                                                             </TooltipTrigger>
-                                                            <TooltipContent className="max-w-sm break-words">
+                                                            <TooltipContent className="max-w-sm wrap-break-word">
                                                                 {lead
                                                                     .activities?.[0]
                                                                     ?.notes ||
