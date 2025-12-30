@@ -24,7 +24,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { SignInFormValues, signinSchema } from '@/validators/auth.schema';
 import { toast } from 'sonner';
 import { IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react';
-import Link from 'next/link';
+
 import { useSigninMutation } from '@/redux/features/auth/authApi';
 import { useRouter } from 'next/navigation';
 

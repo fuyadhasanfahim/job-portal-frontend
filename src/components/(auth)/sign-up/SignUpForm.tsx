@@ -182,7 +182,7 @@ export default function SignUpForm() {
                         <CardHeader>
                             <CardTitle>Complete Your Registration</CardTitle>
                             <CardDescription>
-                                You've been invited to join. Fill in the form below to create your account.
+                                You&apos;ve been invited to join. Fill in the form below to create your account.
                             </CardDescription>
                         </CardHeader>
 
@@ -342,8 +342,8 @@ export default function SignUpForm() {
                                                             <div
                                                                 key={idx}
                                                                 className={`flex items-center gap-2 ${passed
-                                                                        ? 'text-green-600'
-                                                                        : 'text-gray-500'
+                                                                    ? 'text-green-600'
+                                                                    : 'text-gray-500'
                                                                     }`}
                                                             >
                                                                 {passed ? (

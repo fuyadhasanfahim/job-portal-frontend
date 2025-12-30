@@ -423,7 +423,7 @@ export default function LeadsTable() {
                                                 setSelectedLeads(new Set(result.leadIds));
                                                 toast.success(`Selected ${result.leadIds.length} leads`);
                                             }
-                                        } catch (error) {
+                                        } catch (_error) {
                                             toast.error('Failed to select all leads');
                                         }
                                     }}

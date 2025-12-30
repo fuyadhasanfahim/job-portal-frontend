@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,8 +12,7 @@ import {
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import type { IGroup } from '@/types/group.interface';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { ChevronDownIcon } from 'lucide-react';
+
 import { Form } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,27 +36,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { Spinner } from '@/components/ui/spinner';
 import { CountrySelect } from '@/components/shared/CountrySelect';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { IActivity } from '@/types/lead.interface';
 
-const statusList = [
-    'new',
-    'busy',
-    'interested',
-    'not-interested',
-    'call-back',
-    'test-trial',
-    'on-board',
-    'no-answer',
-    'email/whatsApp-sent',
-    'language-barrier',
-    'invalid-number',
-] as const;
+
+
 
 const contactPersonSchema = z.object({
     firstName: z.string().optional(),
