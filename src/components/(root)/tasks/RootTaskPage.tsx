@@ -76,7 +76,7 @@ export default function RootTaskPage() {
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [open, setOpen] = useState(false);
 
-    const { data, isLoading, isFetching } = useGetTasksQuery({
+    const { data, isLoading } = useGetTasksQuery({
         page,
         limit,
         selectedUserId,
@@ -191,7 +191,7 @@ export default function RootTaskPage() {
                                                         All
                                                     </SelectItem>
                                                     {usersLoading ||
-                                                    usersFetching ? (
+                                                        usersFetching ? (
                                                         <div className="space-y-2 p-2">
                                                             {Array.from({
                                                                 length: 5,
@@ -209,7 +209,7 @@ export default function RootTaskPage() {
                                                             ))}
                                                         </div>
                                                     ) : usersData?.users
-                                                          ?.length > 0 ? (
+                                                        ?.length > 0 ? (
                                                         usersData?.users?.map(
                                                             (u: IUser) => (
                                                                 <SelectItem
@@ -371,7 +371,7 @@ export default function RootTaskPage() {
                                 </TableHeader>
 
                                 <TableBody>
-                                    {isLoading || isFetching ? (
+                                    {isLoading && !tasks.length ? (
                                         Array.from({ length: 10 }).map(
                                             (_, i) => (
                                                 <TableRow key={i}>
@@ -415,15 +415,15 @@ export default function RootTaskPage() {
                                                     <Badge
                                                         variant={
                                                             task.status ===
-                                                            'completed'
+                                                                'completed'
                                                                 ? 'secondary'
                                                                 : task.status ===
-                                                                  'in_progress'
-                                                                ? 'default'
-                                                                : task.status ===
-                                                                  'cancelled'
-                                                                ? 'destructive'
-                                                                : 'outline'
+                                                                    'in_progress'
+                                                                    ? 'default'
+                                                                    : task.status ===
+                                                                        'cancelled'
+                                                                        ? 'destructive'
+                                                                        : 'outline'
                                                         }
                                                         className={cn(
                                                             'capitalize',
@@ -445,27 +445,27 @@ export default function RootTaskPage() {
                                                 <TableCell className="border text-sm text-muted-foreground">
                                                     {task.createdAt
                                                         ? formatDistanceToNow(
-                                                              new Date(
-                                                                  task.createdAt
-                                                              ),
-                                                              {
-                                                                  addSuffix:
-                                                                      true,
-                                                              }
-                                                          )
+                                                            new Date(
+                                                                task.createdAt
+                                                            ),
+                                                            {
+                                                                addSuffix:
+                                                                    true,
+                                                            }
+                                                        )
                                                         : '—'}
                                                 </TableCell>
                                                 <TableCell className="border text-sm text-muted-foreground">
                                                     {task.finishedAt
                                                         ? formatDistanceToNow(
-                                                              new Date(
-                                                                  task.finishedAt
-                                                              ),
-                                                              {
-                                                                  addSuffix:
-                                                                      true,
-                                                              }
-                                                          )
+                                                            new Date(
+                                                                task.finishedAt
+                                                            ),
+                                                            {
+                                                                addSuffix:
+                                                                    true,
+                                                            }
+                                                        )
                                                         : '—'}
                                                 </TableCell>
                                                 <TableCell className="border text-center">
@@ -507,7 +507,7 @@ export default function RootTaskPage() {
                     tasks
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     <Button
                         variant="outline"
                         size="sm"
@@ -518,6 +518,61 @@ export default function RootTaskPage() {
                         <ChevronLeft className="h-4 w-4" />
                         Previous
                     </Button>
+
+                    {/* Page Numbers */}
+                    {(() => {
+                        const totalPages = pagination.totalPages;
+                        const currentPage = pagination.currentPage;
+                        const pages: (number | string)[] = [];
+
+                        if (totalPages <= 7) {
+                            for (let i = 1; i <= totalPages; i++) {
+                                pages.push(i);
+                            }
+                        } else {
+                            pages.push(1);
+
+                            if (currentPage > 3) {
+                                pages.push('...');
+                            }
+
+                            const start = Math.max(2, currentPage - 1);
+                            const end = Math.min(totalPages - 1, currentPage + 1);
+
+                            for (let i = start; i <= end; i++) {
+                                if (!pages.includes(i)) {
+                                    pages.push(i);
+                                }
+                            }
+
+                            if (currentPage < totalPages - 2) {
+                                pages.push('...');
+                            }
+
+                            if (!pages.includes(totalPages)) {
+                                pages.push(totalPages);
+                            }
+                        }
+
+                        return pages.map((p, idx) => (
+                            p === '...' ? (
+                                <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">
+                                    ...
+                                </span>
+                            ) : (
+                                <Button
+                                    key={p}
+                                    variant={currentPage === p ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="min-w-[36px]"
+                                    onClick={() => setPage(p as number)}
+                                >
+                                    {p}
+                                </Button>
+                            )
+                        ));
+                    })()}
+
                     <Button
                         variant="outline"
                         size="sm"

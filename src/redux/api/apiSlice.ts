@@ -66,12 +66,14 @@ export const apiSlice = createApi({
     baseQuery: baseQueryWithReauth,
     tagTypes: [
         'User',
+        'Users',
         'Leads',
         'Tasks',
         'Logs',
         'Trash',
         'Groups',
         'Invitations',
+        'Notifications',
     ],
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     endpoints: (_builder) => ({}),

@@ -12,6 +12,14 @@ export const data = [
         title: 'Tasks',
     },
     {
+        location: '/members',
+        title: 'Members',
+    },
+    {
+        location: '/user-profile/notifications',
+        title: 'Notifications',
+    },
+    {
         location: '/user-profile',
         title: 'User Profile',
     },

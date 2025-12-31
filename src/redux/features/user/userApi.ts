@@ -51,6 +51,7 @@ export const userApi = apiSlice.injectEndpoints({
                     includeAdmins,
                 },
             }),
+            providesTags: ['Users'],
         }),
         updatePassword: builder.mutation({
             query: (data) => ({
@@ -58,6 +59,16 @@ export const userApi = apiSlice.injectEndpoints({
                 method: 'PUT',
                 body: data,
             }),
+        }),
+        unlockUserAccount: builder.mutation<
+            { success: boolean; message: string },
+            string
+        >({
+            query: (userId) => ({
+                url: `/users/unlock-account/${userId}`,
+                method: 'POST',
+            }),
+            invalidatesTags: ['Users'],
         }),
     }),
 });
@@ -67,4 +78,5 @@ export const {
     useGetAllUsersQuery,
     useUpdateUserMutation,
     useUpdatePasswordMutation,
+    useUnlockUserAccountMutation,
 } = userApi;

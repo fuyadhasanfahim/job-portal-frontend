@@ -22,7 +22,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SignUpFormValues, signupSchema } from '@/validators/auth.schema';
-import { Check, X, Mail, Shield } from 'lucide-react';
+import { Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useSignupMutation } from '@/redux/features/auth/authApi';
 import { useValidateInvitationQuery } from '@/redux/features/invitation/invitationApi';
@@ -32,7 +32,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function SignUpForm() {
-    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const searchParams = useSearchParams();
     const token = searchParams.get('token');
@@ -92,26 +91,6 @@ export default function SignUpForm() {
             toast.error('Unexpected error. Please try again later.');
         }
     };
-
-    const rules = [
-        {
-            label: 'At least 6 characters',
-            test: (pw: string) => pw.length >= 6,
-        },
-        {
-            label: 'At least one uppercase letter',
-            test: (pw: string) => /[A-Z]/.test(pw),
-        },
-        {
-            label: 'At least one lowercase letter',
-            test: (pw: string) => /[a-z]/.test(pw),
-        },
-        { label: 'At least one number', test: (pw: string) => /\d/.test(pw) },
-        {
-            label: 'At least one special character (@$!%*?&)',
-            test: (pw: string) => /[@$!%*?&]/.test(pw),
-        },
-    ];
 
     // No token provided
     if (!token) {
@@ -281,7 +260,7 @@ export default function SignUpForm() {
                                 )}
                             />
 
-                            {/* Password with conditional checklist */}
+                            {/* Password */}
                             <FormField
                                 control={form.control}
                                 name="password"
@@ -299,12 +278,6 @@ export default function SignUpForm() {
                                                         }
                                                         placeholder="••••••••"
                                                         {...field}
-                                                        onChange={(e) => {
-                                                            field.onChange(e);
-                                                            setPassword(
-                                                                e.target.value
-                                                            );
-                                                        }}
                                                     />
                                                 </FormControl>
                                                 {/* Toggle button */}
@@ -331,42 +304,6 @@ export default function SignUpForm() {
                                                 </button>
                                             </div>
                                             <FormMessage />
-
-                                            {/* Checklist only if user typed something */}
-                                            {password && (
-                                                <div className="mt-2 space-y-1 text-sm">
-                                                    {rules.map((rule, idx) => {
-                                                        const passed =
-                                                            rule.test(password);
-                                                        return (
-                                                            <div
-                                                                key={idx}
-                                                                className={`flex items-center gap-2 ${passed
-                                                                    ? 'text-green-600'
-                                                                    : 'text-gray-500'
-                                                                    }`}
-                                                            >
-                                                                {passed ? (
-                                                                    <Check
-                                                                        size={
-                                                                            16
-                                                                        }
-                                                                    />
-                                                                ) : (
-                                                                    <X
-                                                                        size={
-                                                                            16
-                                                                        }
-                                                                    />
-                                                                )}
-                                                                <span>
-                                                                    {rule.label}
-                                                                </span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
                                         </FormItem>
                                     );
                                 }}

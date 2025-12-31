@@ -164,7 +164,7 @@ export default function LeadsTable() {
 
     const { sortBy, sortOrder } = getSortParams();
 
-    const { data, isLoading, isError, isFetching } = useGetLeadsQuery({
+    const { data, isLoading, isError } = useGetLeadsQuery({
         page,
         limit: perPage,
         search,
@@ -423,7 +423,7 @@ export default function LeadsTable() {
                                                 setSelectedLeads(new Set(result.leadIds));
                                                 toast.success(`Selected ${result.leadIds.length} leads`);
                                             }
-                                        } catch (_error) {
+                                        } catch {
                                             toast.error('Failed to select all leads');
                                         }
                                     }}
@@ -498,19 +498,10 @@ export default function LeadsTable() {
                                             Emails
                                         </TableHead>
                                         <TableHead className="border">
-                                            Phones
-                                        </TableHead>
-                                        <TableHead className="border">
                                             Designation
                                         </TableHead>
                                         <TableHead className="border">
-                                            Address
-                                        </TableHead>
-                                        <TableHead className="border">
                                             Country
-                                        </TableHead>
-                                        <TableHead className="border">
-                                            Status
                                         </TableHead>
                                         <TableHead className="border">
                                             Group
@@ -525,12 +516,12 @@ export default function LeadsTable() {
                                 </TableHeader>
 
                                 <TableBody>
-                                    {isLoading || isFetching ? (
+                                    {isLoading && !leads.length ? (
                                         Array.from({ length: perPage }).map(
                                             (_, i) => (
                                                 <TableRow key={i}>
                                                     {Array.from({
-                                                        length: 12,
+                                                        length: 9,
                                                     }).map((__, j) => (
                                                         <TableCell
                                                             key={j}
@@ -645,64 +636,15 @@ export default function LeadsTable() {
                                                         </div>
                                                     </TableCell>
 
-                                                    {/* Phones */}
-                                                    <TableCell className="border truncate max-w-[200px]">
-                                                        <div className="space-y-1">
-                                                            {lead.contactPersons?.flatMap(
-                                                                (cp, ci) =>
-                                                                    cp.phones?.map(
-                                                                        (
-                                                                            phone,
-                                                                            pi
-                                                                        ) => (
-                                                                            <p
-                                                                                key={`cp-phone-${lead._id}-${ci}-${pi}`}
-                                                                            >
-                                                                                {
-                                                                                    phone
-                                                                                }
-                                                                            </p>
-                                                                        )
-                                                                    )
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-
                                                     {/* Designation */}
                                                     <TableCell className="border truncate max-w-[200px] capitalize">
                                                         {contact?.designation ||
                                                             'N/A'}
                                                     </TableCell>
 
-                                                    {/* Address */}
-                                                    <TableCell className="border max-w-[200px] truncate capitalize">
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                asChild
-                                                            >
-                                                                <span className="block max-w-[200px] truncate cursor-help">
-                                                                    {lead.address ||
-                                                                        'N/A'}
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="max-w-sm wrap-break-word">
-                                                                {lead.address ||
-                                                                    'N/A'}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TableCell>
-
                                                     {/* Country */}
                                                     <TableCell className="border capitalize">
                                                         {lead.country || 'N/A'}
-                                                    </TableCell>
-
-                                                    {/* Status */}
-                                                    <TableCell className="border capitalize">
-                                                        {lead.status.replace(
-                                                            /-/g,
-                                                            ' '
-                                                        )}
                                                     </TableCell>
 
                                                     {/* Group */}
@@ -833,7 +775,7 @@ export default function LeadsTable() {
                                 </span>{' '}
                                 leads
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -841,9 +783,67 @@ export default function LeadsTable() {
                                     onClick={() => setPage((p) => p - 1)}
                                     className="gap-1"
                                 >
-                                    <ChevronLeft />
+                                    <ChevronLeft className="h-4 w-4" />
                                     Previous
                                 </Button>
+
+                                {/* Page Numbers */}
+                                {(() => {
+                                    const totalPages = pagination.totalPages;
+                                    const pages: (number | string)[] = [];
+
+                                    if (totalPages <= 7) {
+                                        // Show all pages if 7 or fewer
+                                        for (let i = 1; i <= totalPages; i++) {
+                                            pages.push(i);
+                                        }
+                                    } else {
+                                        // Always show first page
+                                        pages.push(1);
+
+                                        if (page > 3) {
+                                            pages.push('...');
+                                        }
+
+                                        // Show pages around current page
+                                        const start = Math.max(2, page - 1);
+                                        const end = Math.min(totalPages - 1, page + 1);
+
+                                        for (let i = start; i <= end; i++) {
+                                            if (!pages.includes(i)) {
+                                                pages.push(i);
+                                            }
+                                        }
+
+                                        if (page < totalPages - 2) {
+                                            pages.push('...');
+                                        }
+
+                                        // Always show last page
+                                        if (!pages.includes(totalPages)) {
+                                            pages.push(totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((p, idx) => (
+                                        p === '...' ? (
+                                            <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">
+                                                ...
+                                            </span>
+                                        ) : (
+                                            <Button
+                                                key={p}
+                                                variant={page === p ? 'default' : 'outline'}
+                                                size="sm"
+                                                className="min-w-[36px]"
+                                                onClick={() => setPage(p as number)}
+                                            >
+                                                {p}
+                                            </Button>
+                                        )
+                                    ));
+                                })()}
+
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -852,7 +852,7 @@ export default function LeadsTable() {
                                     className="gap-1"
                                 >
                                     Next
-                                    <ChevronRight />
+                                    <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
                         </div>

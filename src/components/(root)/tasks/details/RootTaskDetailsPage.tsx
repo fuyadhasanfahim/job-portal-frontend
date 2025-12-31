@@ -74,7 +74,7 @@ export default function RootTaskDetailsPage() {
         dueAt: undefined,
     });
 
-    const { data, isLoading, isFetching } = useGetTaskByIdQuery(id, {
+    const { data, isLoading } = useGetTaskByIdQuery(id, {
         skip: !id,
         refetchOnMountOrArgChange: false,
     });
@@ -134,7 +134,7 @@ export default function RootTaskDetailsPage() {
         }
     };
 
-    if (isLoading || isFetching)
+    if (isLoading && !task)
         return (
             <div className="p-6 space-y-4">
                 <Skeleton className="h-8 w-1/3" />
