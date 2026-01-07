@@ -11,6 +11,7 @@ import {
 } from '@/redux/features/lead/leadApi';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import type { IGroup } from '@/types/group.interface';
+import type { IContactPerson } from '@/types/lead.interface';
 import { toast } from 'sonner';
 
 import { Form } from '@/components/ui/form';
@@ -125,6 +126,22 @@ export default function RootLeadsEditPage() {
             const formattedLead = {
                 ...lead,
                 group: groupId,
+                contactPersons: lead.contactPersons?.map((cp: IContactPerson) => ({
+                    ...cp,
+                    firstName: cp.firstName || '',
+                    lastName: cp.lastName || '',
+                    designation: cp.designation || '',
+                    emails: cp.emails && cp.emails.length > 0 ? cp.emails : [''],
+                    phones: cp.phones && cp.phones.length > 0 ? cp.phones : [''],
+                })) || [
+                    {
+                        firstName: '',
+                        lastName: '',
+                        designation: '',
+                        emails: [''],
+                        phones: [''],
+                    },
+                ],
             };
             form.reset(formattedLead);
         }
