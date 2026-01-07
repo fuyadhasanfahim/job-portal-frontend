@@ -333,38 +333,38 @@ export default function RootTaskPage() {
                         </div>
 
                         {/* ✅ Table */}
-                        <div className="mt-6 overflow-hidden">
+                        <div className="mt-6 border rounded-lg overflow-hidden">
                             <Table>
-                                <TableHeader className="bg-accent">
-                                    <TableRow>
-                                        <TableHead className="border">
+                                <TableHeader className="bg-muted/50">
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="text-xs font-semibold min-w-[180px] max-w-[220px]">
                                             Title
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold min-w-[80px] w-[80px]">
                                             Type
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold min-w-[140px]">
                                             Assigned To
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold min-w-[140px]">
                                             Created By
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold text-center w-[60px]">
                                             Leads
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold min-w-[90px] w-[90px]">
                                             Status
                                         </TableHead>
-                                        <TableHead className="border text-center">
+                                        <TableHead className="text-xs font-semibold text-center min-w-[100px] w-[100px]">
                                             Progress
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold min-w-[100px]">
                                             Created
                                         </TableHead>
-                                        <TableHead className="border">
+                                        <TableHead className="text-xs font-semibold min-w-[100px]">
                                             Finished
                                         </TableHead>
-                                        <TableHead className="border text-center">
+                                        <TableHead className="text-xs font-semibold text-center w-[70px]">
                                             Action
                                         </TableHead>
                                     </TableRow>
@@ -374,15 +374,15 @@ export default function RootTaskPage() {
                                     {isLoading && !tasks.length ? (
                                         Array.from({ length: 10 }).map(
                                             (_, i) => (
-                                                <TableRow key={i}>
+                                                <TableRow key={i} className="animate-pulse">
                                                     {Array.from({
                                                         length: 10,
                                                     }).map((__, j) => (
                                                         <TableCell
                                                             key={j}
-                                                            className="border"
+                                                            className="py-3"
                                                         >
-                                                            <Skeleton className="h-6 w-24" />
+                                                            <Skeleton className="h-5 w-20 rounded-full" />
                                                         </TableCell>
                                                     ))}
                                                 </TableRow>
@@ -390,28 +390,41 @@ export default function RootTaskPage() {
                                         )
                                     ) : tasks.length ? (
                                         tasks.map((task: ITask) => (
-                                            <TableRow key={task._id}>
-                                                <TableCell className="border font-medium">
+                                            <TableRow key={task._id} className="hover:bg-muted/50 transition-colors">
+                                                <TableCell className="font-medium py-2.5 text-sm truncate max-w-[220px]">
                                                     {task.title || 'Untitled'}
                                                 </TableCell>
-                                                <TableCell className="border capitalize">
-                                                    {task.type.replace(
-                                                        /_/g,
-                                                        ' '
-                                                    )}
+                                                <TableCell className="capitalize text-sm py-2.5 truncate">
+                                                    {task.type.replace(/_/g, ' ')}
                                                 </TableCell>
-                                                <TableCell className="border">
-                                                    {task.assignedTo?.firstName}{' '}
-                                                    {task.assignedTo?.lastName}
+                                                <TableCell className="text-sm py-2.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Avatar className="h-6 w-6">
+                                                            <AvatarImage src={task.assignedTo?.image || ''} />
+                                                            <AvatarFallback className="text-xs">
+                                                                {task.assignedTo?.firstName?.[0]}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <span>{task.assignedTo?.firstName} {task.assignedTo?.lastName}</span>
+                                                    </div>
                                                 </TableCell>
-                                                <TableCell className="border">
-                                                    {task.createdBy?.firstName}{' '}
-                                                    {task.createdBy?.lastName}
+                                                <TableCell className="text-sm py-2.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Avatar className="h-6 w-6">
+                                                            <AvatarImage src={task.createdBy?.image || ''} />
+                                                            <AvatarFallback className="text-xs">
+                                                                {task.createdBy?.firstName?.[0]}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <span>{task.createdBy?.firstName} {task.createdBy?.lastName}</span>
+                                                    </div>
                                                 </TableCell>
-                                                <TableCell className="border text-center">
-                                                    {task.leads?.length ?? 0}
+                                                <TableCell className="text-sm text-center py-2.5">
+                                                    <Badge variant="outline" className="font-medium">
+                                                        {task.leads?.length ?? 0}
+                                                    </Badge>
                                                 </TableCell>
-                                                <TableCell className="border">
+                                                <TableCell className="py-2.5">
                                                     <Badge
                                                         variant={
                                                             task.status ===
@@ -426,10 +439,12 @@ export default function RootTaskPage() {
                                                                         : 'outline'
                                                         }
                                                         className={cn(
-                                                            'capitalize',
+                                                            'capitalize text-xs',
                                                             task.status ===
                                                                 'completed'
-                                                                ? 'bg-green-100 text-green-700 border border-green-300'
+                                                                ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-100'
+                                                                : task.status === 'in_progress'
+                                                                ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-100'
                                                                 : ''
                                                         )}
                                                     >
@@ -439,10 +454,21 @@ export default function RootTaskPage() {
                                                         )}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="border text-center">
-                                                    {task.progress ?? 0}%
+                                                <TableCell className="text-center py-2.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={cn(
+                                                                    "h-full transition-all",
+                                                                    task.progress === 100 ? "bg-green-500" : "bg-primary"
+                                                                )}
+                                                                style={{ width: `${task.progress ?? 0}%` }}
+                                                            />
+                                                        </div>
+                                                        <span className="text-xs font-medium w-10">{task.progress ?? 0}%</span>
+                                                    </div>
                                                 </TableCell>
-                                                <TableCell className="border text-sm text-muted-foreground">
+                                                <TableCell className="text-sm text-muted-foreground py-2.5">
                                                     {task.createdAt
                                                         ? formatDistanceToNow(
                                                             new Date(
@@ -455,7 +481,7 @@ export default function RootTaskPage() {
                                                         )
                                                         : '—'}
                                                 </TableCell>
-                                                <TableCell className="border text-sm text-muted-foreground">
+                                                <TableCell className="text-sm text-muted-foreground py-2.5">
                                                     {task.finishedAt
                                                         ? formatDistanceToNow(
                                                             new Date(
@@ -468,12 +494,11 @@ export default function RootTaskPage() {
                                                         )
                                                         : '—'}
                                                 </TableCell>
-                                                <TableCell className="border text-center">
-                                                    <Link
-                                                        href={`/tasks/details/${task._id}`}
-                                                        className="underline text-sm"
-                                                    >
-                                                        View
+                                                <TableCell className="text-center py-2.5">
+                                                    <Link href={`/tasks/details/${task._id}`}>
+                                                        <Button variant="ghost" size="sm" className="gap-1.5">
+                                                            View
+                                                        </Button>
                                                     </Link>
                                                 </TableCell>
                                             </TableRow>
@@ -482,9 +507,11 @@ export default function RootTaskPage() {
                                         <TableRow>
                                             <TableCell
                                                 colSpan={10}
-                                                className="text-center py-12 text-gray-500 border"
+                                                className="text-center py-16 text-muted-foreground"
                                             >
-                                                No tasks found
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <p>No tasks found</p>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     )}

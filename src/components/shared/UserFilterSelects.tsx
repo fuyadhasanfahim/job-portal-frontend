@@ -52,17 +52,16 @@ export function UserFilterSelects({
     );
 
     const users = usersData?.users ?? [];
-    console.log(usersData);
 
     return (
         (user?.role === 'admin' || user?.role === 'super-admin') && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
                 <Select
                     value={selectedRole}
                     onValueChange={setSelectedRole}
                     disabled={disabled}
                 >
-                    <SelectTrigger id="role" className="capitalize">
+                    <SelectTrigger id="role" className="w-full h-9 text-sm capitalize">
                         <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -83,32 +82,30 @@ export function UserFilterSelects({
                     onValueChange={setSelectedUserId}
                     disabled={disabled}
                 >
-                    <SelectTrigger id="users" className="capitalize">
+                    <SelectTrigger id="users" className="w-full h-9 text-sm capitalize">
                         <SelectValue placeholder="Select user" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all-user">All User</SelectItem>
+                        <SelectItem value="all-user">All Users</SelectItem>
                         {usersLoading || usersFetching ? (
                             <div className="space-y-2 p-2">
                                 {Array.from({ length: 5 }).map((_, i) => (
                                     <div key={i} className="space-y-1 w-full">
                                         <Skeleton className="h-3 w-full" />
-                                        <Skeleton className="h-2 w-full" />
+                                        <Skeleton className="h-2 w-3/4" />
                                     </div>
                                 ))}
                             </div>
                         ) : users.length > 0 ? (
                             users.map((u: IUser) => (
                                 <SelectItem key={u._id} value={u._id}>
-                                    <div className="space-y-1 w-full">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-medium">
-                                                {u.firstName} {u.lastName}
-                                            </span>
-                                            <span className="text-muted-foreground capitalize">
-                                                {u.role?.replace(/-/g, ' ')}
-                                            </span>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium">
+                                            {u.firstName} {u.lastName}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground capitalize px-1.5 py-0.5 bg-muted rounded">
+                                            {u.role?.replace(/-/g, ' ')}
+                                        </span>
                                     </div>
                                 </SelectItem>
                             ))

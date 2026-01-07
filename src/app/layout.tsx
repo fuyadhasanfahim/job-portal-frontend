@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
-import { Lato } from 'next/font/google';
+import { Open_Sans } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import MainLayout from '@/components/providers/Main';
 
-const lato = Lato({
-    variable: '--font-lato',
+const openSans = Open_Sans({
+    variable: '--font-sans',
     subsets: ['latin'],
-    weight: ['700', '900'],
+    weight: ['300', '400', '500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={cn('antialiased', lato.variable)}>
+            <body className={cn('antialiased', openSans.variable)}>
                 <MainLayout>{children}</MainLayout>
             </body>
         </html>

@@ -48,14 +48,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const status = [
     'new',
-    'busy',
     'interested',
     'not-interested',
     'call-back',
     'test-trial',
     'on-board',
-    'no-answer',
-    'email/whatsApp-sent',
     'language-barrier',
     'invalid-number',
 ];
@@ -81,14 +78,11 @@ const leadSchema = z.object({
     country: z.string().min(1, 'Country is required'),
     status: z.enum([
         'new',
-        'busy',
         'interested',
         'not-interested',
         'call-back',
         'test-trial',
         'on-board',
-        'no-answer',
-        'email/whatsApp-sent',
         'language-barrier',
         'invalid-number',
     ]),
@@ -99,14 +93,11 @@ const leadSchema = z.object({
             z.object({
                 status: z.enum([
                     'new',
-                    'busy',
                     'interested',
                     'not-interested',
                     'call-back',
                     'test-trial',
                     'on-board',
-                    'no-answer',
-                    'email/whatsApp-sent',
                     'language-barrier',
                     'invalid-number',
                 ]),

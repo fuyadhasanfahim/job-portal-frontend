@@ -14,15 +14,12 @@ export interface IContactPerson {
 export type LeadStatus =
     | 'all'
     | 'new'
-    | 'busy'
     | 'answering-machine'
     | 'interested'
     | 'not-interested'
     | 'test-trial'
     | 'call-back'
     | 'on-board'
-    | 'no-answer'
-    | 'email/whatsApp-sent'
     | 'language-barrier'
     | 'invalid-number';
 

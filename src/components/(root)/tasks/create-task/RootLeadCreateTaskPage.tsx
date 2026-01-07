@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Table,
     TableBody,
@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
-import { Label } from '@/components/ui/label';
-import { ChevronDownIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ChevronDownIcon, ChevronLeft, ChevronRight, Search, Users, ClipboardList, RotateCcw, CheckSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
 import { useGetLeadsQuery } from '@/redux/features/lead/leadApi';
@@ -36,15 +36,21 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import Link from 'next/link';
-import { UserFilterSelects } from '@/components/shared/UserFilterSelects';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 
 type SortOption = 'companyAsc' | 'companyDesc' | 'countryAsc' | 'countryDesc';
 
 const statusTabs = [
     { value: 'all', label: 'All' },
     { value: 'new', label: 'New' },
-    { value: 'busy', label: 'Busy' },
     { value: 'answering-machine', label: 'Answering Machine' },
     { value: 'interested', label: 'Interested' },
     { value: 'not-interested', label: 'Not Interested' },
@@ -56,10 +62,7 @@ const statusTabs = [
 
 export default function RootLeadCreateTaskPage() {
     const { user } = useSignedUser();
-    const isAdmin = user?.role === 'admin' || user?.role === 'super-admin';
 
-    const [selectedRole, setSelectedRole] = useState('all-role');
-    const [selectedUserId, setSelectedUserId] = useState('all-user');
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
@@ -68,8 +71,22 @@ export default function RootLeadCreateTaskPage() {
     const [sort, setSort] = useState<SortOption>('companyAsc');
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState<Date | undefined>(undefined);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [groupFilter, setGroupFilter] = useState('all');
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     const { data: countries } = useGetCountriesQuery({});
+    const { data: groupsData } = useGetGroupsQuery({});
+    const groups = groupsData?.groups ?? [];
 
     const {
         data,
@@ -83,7 +100,8 @@ export default function RootLeadCreateTaskPage() {
         sortOrder: sort.endsWith('Asc') ? 'asc' : 'desc',
         status,
         date: date ? date.toLocaleDateString('en-CA') : '',
-        selectedUserId,
+        search: debouncedSearch,
+        group: groupFilter,
     });
 
     const leads = data?.data ?? [];
@@ -102,25 +120,25 @@ export default function RootLeadCreateTaskPage() {
     };
 
     const handleCreateTask = async () => {
-        const assignedUserId = isAdmin ? selectedUserId : user?._id;
-
-        if (!assignedUserId) return toast.error('Please select a user');
-        if (selectedLeads.length === 0)
+        if (!user?._id) {
+            return toast.error('Please login to create a task');
+        }
+        if (selectedLeads.length === 0) {
             return toast.error('Please select at least one lead');
+        }
 
         try {
             const res = await createTask({
                 title: `Lead Assignment - ${new Date().toLocaleDateString()}`,
-                description: `Lead generation task assigned to ${assignedUserId}`,
+                description: `Lead generation task`,
                 type: 'cold_call',
                 quantity: selectedLeads.length,
-                assignedTo: assignedUserId,
+                assignedTo: user._id,
                 leads: selectedLeads,
             }).unwrap();
 
             toast.success(res.message || 'Task created successfully!');
             setSelectedLeads([]);
-            if (isAdmin) setSelectedUserId('');
         } catch (err) {
             const message =
                 (err as { data?: { message?: string } })?.data?.message ??
@@ -129,374 +147,317 @@ export default function RootLeadCreateTaskPage() {
         }
     };
 
-    // ------------------ UI ------------------
+    const resetFilters = () => {
+        setStatus('all');
+        setCountryFilter('all');
+        setGroupFilter('all');
+        setDate(undefined);
+        setSearchTerm('');
+        setPage(1);
+    };
+
+    const hasActiveFilters = status !== 'all' || countryFilter !== 'all' || groupFilter !== 'all' || date || searchTerm;
+
     return (
-        <div className="p-6 space-y-6 rounded-lg border bg-card">
-            <h2 className="text-xl font-semibold">
-                Create Lead Generation Task
-            </h2>
-
-            {/* ✅ Tabs for status filter */}
-            <Tabs
-                value={status}
-                onValueChange={(val) => {
-                    setStatus(val);
-                    setPage(1);
-                }}
-                className="w-full"
-            >
-                <TabsList className="flex flex-wrap gap-2">
-                    {statusTabs.map((s) => (
-                        <TabsTrigger
-                            key={s.value}
-                            value={s.value}
-                            className="capitalize"
-                        >
-                            {s.label}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
-
-            {/* Filters */}
-            <div className="flex items-end justify-end gap-4">
-                {/* Role & User (only visible to admin/super-admin) */}
-                {isAdmin ? (
-                    <div className="w-full max-w-5xl">
-                        <UserFilterSelects
-                            selectedRole={selectedRole}
-                            setSelectedRole={setSelectedRole}
-                            selectedUserId={selectedUserId}
-                            setSelectedUserId={setSelectedUserId}
-                        />
+        <Card>
+            <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                            <ClipboardList className="h-5 w-5 text-primary" />
+                        </div>
+                        <CardTitle>Create Lead Task</CardTitle>
                     </div>
-                ) : (
-                    <Input
-                        type="hidden"
-                        value={user?._id}
-                        onChange={() => {}}
-                    />
-                )}
+                    
+                    {selectedLeads.length > 0 && (
+                        <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+                                <CheckSquare className="h-3.5 w-3.5" />
+                                {selectedLeads.length} leads selected
+                            </Badge>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedLeads([])}
+                            >
+                                Clear
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </CardHeader>
 
-                {/* Country */}
-                <div className="grid gap-2">
-                    <Label htmlFor="country-select">Country</Label>
-                    <Select
-                        value={countryFilter}
-                        onValueChange={setCountryFilter}
-                    >
-                        <SelectTrigger
-                            id="country-select"
-                            className="w-full capitalize"
-                        >
+            <CardContent className="space-y-4">
+                {/* Status Tabs */}
+                <Tabs
+                    value={status}
+                    onValueChange={(val) => {
+                        setStatus(val);
+                        setPage(1);
+                    }}
+                    className="w-full"
+                >
+                    <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-muted/50 w-full justify-start">
+                        {statusTabs.map((s) => (
+                            <TabsTrigger
+                                key={s.value}
+                                value={s.value}
+                                className="capitalize text-xs"
+                            >
+                                {s.label}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+
+                {/* Search Row */}
+                <div className="relative max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search leads..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+
+                {/* Filters Row */}
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Country */}
+                    <Select value={countryFilter} onValueChange={setCountryFilter}>
+                        <SelectTrigger className="w-[140px]">
                             <SelectValue placeholder="Country" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Countries</SelectItem>
                             {countries?.map((c) => (
-                                <SelectItem
-                                    key={c.name}
-                                    value={c.name}
-                                    className="capitalize"
-                                >
+                                <SelectItem key={c.name} value={c.name} className="capitalize">
                                     {c.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
 
-                {/* Date */}
-                <div className="grid gap-2">
-                    <Label htmlFor="date" className="px-1">
-                        Date
-                    </Label>
-                    <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                id="date"
-                                className="w-auto justify-between font-normal"
-                            >
-                                {date
-                                    ? date.toLocaleDateString()
-                                    : 'Select date'}
-                                <ChevronDownIcon />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                            className="w-auto overflow-hidden p-0"
-                            align="start"
-                        >
-                            <Calendar
-                                mode="single"
-                                selected={date}
-                                captionLayout="dropdown"
-                                onSelect={(date) => {
-                                    setDate(date);
-                                    setOpen(false);
-                                }}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                </div>
-
-                {/* Sort */}
-                <div className="grid gap-2">
-                    <Label htmlFor="sort-select">Sort</Label>
-                    <Select
-                        value={sort}
-                        onValueChange={(val) => setSort(val as SortOption)}
-                    >
-                        <SelectTrigger id="sort-select" className="w-full">
-                            <SelectValue placeholder="Sort by" />
+                    {/* Group */}
+                    <Select value={groupFilter} onValueChange={setGroupFilter}>
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Group" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="companyAsc">
-                                Company A-Z
-                            </SelectItem>
-                            <SelectItem value="companyDesc">
-                                Company Z-A
-                            </SelectItem>
-                            <SelectItem value="countryAsc">
-                                Country A-Z
-                            </SelectItem>
-                            <SelectItem value="countryDesc">
-                                Country Z-A
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {/* Per Page */}
-                <div className="grid gap-2">
-                    <Label htmlFor="perpage-select">Per Page</Label>
-                    <Select
-                        value={String(perPage)}
-                        onValueChange={(val) => setPerPage(Number(val))}
-                    >
-                        <SelectTrigger id="perpage-select" className="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {[10, 20, 50, 100].map((n) => (
-                                <SelectItem key={n} value={String(n)}>
-                                    {n} / page
+                            <SelectItem value="all">All Groups</SelectItem>
+                            {groups.map((g: { _id: string; name: string; color?: string }) => (
+                                <SelectItem key={g._id} value={g._id}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color || '#6366f1' }} />
+                                        {g.name}
+                                    </div>
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
-            </div>
 
-            {/* Table */}
-            <Table>
-                <TableHeader className="bg-muted">
-                    <TableRow>
-                        <TableHead className="w-12 text-center border">
-                            <Checkbox
-                                checked={
-                                    selectedLeads.length === leads.length &&
-                                    leads.length > 0
-                                }
-                                onCheckedChange={(checked) =>
-                                    handleSelectAll(!!checked)
-                                }
-                                aria-label="Select all leads"
+                    {/* Date */}
+                    <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-[140px] justify-between font-normal", date && "text-foreground")}>
+                                {date ? date.toLocaleDateString() : 'Select date'}
+                                <ChevronDownIcon className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={date}
+                                captionLayout="dropdown"
+                                onSelect={(d) => { setDate(d); setOpen(false); }}
                             />
-                        </TableHead>
-                        <TableHead className="border">Company</TableHead>
-                        <TableHead className="border">Website</TableHead>
-                        <TableHead className="border">Full Name</TableHead>
-                        <TableHead className="border">Emails</TableHead>
-                        <TableHead className="border">Phones</TableHead>
-                        <TableHead className="border">Designation</TableHead>
-                        <TableHead className="border">Address</TableHead>
-                        <TableHead className="border">Country</TableHead>
-                        <TableHead className="border">Status</TableHead>
-                        <TableHead className="border">Notes</TableHead>
-                    </TableRow>
-                </TableHeader>
+                        </PopoverContent>
+                    </Popover>
 
-                <TableBody>
-                    {leadsLoading || isFetching ? (
-                        Array.from({ length: perPage }).map((_, i) => (
-                            <TableRow key={i}>
-                                {Array.from({ length: 12 }).map((__, j) => (
-                                    <TableCell key={j} className="border">
-                                        <Skeleton className="h-4 w-24 mx-auto" />
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        ))
-                    ) : leads.length ? (
-                        leads.map((lead: ILead) => (
-                            <TableRow key={lead._id}>
-                                <TableCell className="text-center border">
+                    {/* Sort */}
+                    <Select value={sort} onValueChange={(val) => setSort(val as SortOption)}>
+                        <SelectTrigger className="w-[130px]">
+                            <SelectValue placeholder="Sort" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="companyAsc">Company A-Z</SelectItem>
+                            <SelectItem value="companyDesc">Company Z-A</SelectItem>
+                            <SelectItem value="countryAsc">Country A-Z</SelectItem>
+                            <SelectItem value="countryDesc">Country Z-A</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Per Page */}
+                    <Select value={String(perPage)} onValueChange={(val) => setPerPage(Number(val))}>
+                        <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {[10, 20, 50, 100].map((n) => (
+                                <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    {/* Reset */}
+                    {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" onClick={resetFilters} className="gap-1.5">
+                            <RotateCcw className="h-4 w-4" />
+                            Reset
+                        </Button>
+                    )}
+                </div>
+
+                {/* Table */}
+                <div className="border rounded-lg overflow-x-auto">
+                    <Table>
+                        <TableHeader className="bg-muted/50">
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-10">
                                     <Checkbox
-                                        checked={selectedLeads.includes(
-                                            lead._id
-                                        )}
-                                        onCheckedChange={() =>
-                                            handleToggleLead(lead._id)
-                                        }
-                                        aria-label={`Select ${lead.company.name}`}
+                                        checked={selectedLeads.length === leads.length && leads.length > 0}
+                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
                                     />
-                                </TableCell>
-                                <TableCell className="border font-medium max-w-[200px] truncate">
-                                    {lead.company.name}
-                                </TableCell>
-                                <TableCell className="border text-blue-600 underline max-w-[200px] truncate">
-                                    {lead.company.website ? (
-                                        <Link
-                                            href={
-                                                lead.company.website.startsWith(
-                                                    'http'
-                                                )
-                                                    ? lead.company.website
-                                                    : `https://${lead.company.website}`
-                                            }
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="hover:text-blue-700"
-                                        >
-                                            {lead.company.website}
-                                        </Link>
-                                    ) : (
-                                        'N/A'
-                                    )}
-                                </TableCell>
-                                <TableCell className="border capitalize">
-                                    {lead.contactPersons[0]?.firstName}{' '}
-                                    {lead.contactPersons[0]?.lastName}
-                                </TableCell>
-                                <TableCell className="border truncate max-w-[200px]">
-                                    <div className="space-y-1">
-                                        {lead.contactPersons?.flatMap(
-                                            (cp, ci) =>
-                                                cp.emails?.map((email, ei) => (
-                                                    <p
-                                                        key={`cp-email-${lead._id}-${ci}-${ei}`}
-                                                    >
-                                                        {email}
-                                                    </p>
-                                                ))
-                                        )}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="border truncate max-w-[200px]">
-                                    <div className="space-y-1">
-                                        {lead.contactPersons?.flatMap(
-                                            (cp, ci) =>
-                                                cp.phones?.map((phone, pi) => (
-                                                    <p
-                                                        key={`cp-phone-${lead._id}-${ci}-${pi}`}
-                                                    >
-                                                        {phone}
-                                                    </p>
-                                                ))
-                                        )}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="border truncate max-w-[200px] capitalize">
-                                    {lead.contactPersons[0]?.designation ||
-                                        'N/A'}
-                                </TableCell>
-                                <TableCell className="border max-w-[200px] truncate capitalize">
-                                    {lead.address || 'N/A'}
-                                </TableCell>
-                                <TableCell className="border capitalize">
-                                    {lead.country || 'N/A'}
-                                </TableCell>
-                                <TableCell className="border capitalize">
-                                    {lead.status.replace('_', ' ')}
-                                </TableCell>
-                                <TableCell className="border capitalize truncate max-w-[200px]">
-                                    {(lead.activities &&
-                                        lead.activities[0]?.notes) ||
-                                        'N/A'}
-                                </TableCell>
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[150px]">Company</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[140px]">Website</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[130px]">Contact</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[180px]">Email</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[120px]">Phone</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[100px]">Country</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[100px]">Status</TableHead>
                             </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell
-                                colSpan={12}
-                                className="text-center py-12 text-muted-foreground border"
-                            >
-                                No new leads found
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
+                        </TableHeader>
 
-            {/* Pagination */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-                <div className="text-sm text-muted-foreground">
-                    {pagination.totalItems > 0 ? (
-                        <>
-                            Showing{' '}
-                            <span className="font-medium text-foreground">
-                                {(page - 1) * perPage + 1}
-                            </span>{' '}
-                            to{' '}
-                            <span className="font-medium text-foreground">
-                                {Math.min(
-                                    page * perPage,
-                                    pagination.totalItems
-                                )}
-                            </span>{' '}
-                            of{' '}
-                            <span className="font-medium text-foreground">
-                                {pagination.totalItems}
-                            </span>{' '}
-                            leads
-                        </>
-                    ) : (
-                        <>No leads to display</>
-                    )}
+                        <TableBody>
+                            {leadsLoading || isFetching ? (
+                                Array.from({ length: 8 }).map((_, i) => (
+                                    <TableRow key={i} className="animate-pulse">
+                                        {Array.from({ length: 8 }).map((__, j) => (
+                                            <TableCell key={j} className="py-3">
+                                                <Skeleton className="h-4 w-full max-w-[100px] rounded-full" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : leads.length ? (
+                                leads.map((lead: ILead) => (
+                                    <TableRow 
+                                        key={lead._id}
+                                        className={cn(
+                                            "hover:bg-muted/50 transition-colors cursor-pointer",
+                                            selectedLeads.includes(lead._id) && "bg-primary/5"
+                                        )}
+                                        onClick={() => handleToggleLead(lead._id)}
+                                    >
+                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <Checkbox
+                                                checked={selectedLeads.includes(lead._id)}
+                                                onCheckedChange={() => handleToggleLead(lead._id)}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="font-medium text-sm truncate max-w-[150px]">
+                                            {lead.company.name}
+                                        </TableCell>
+                                        <TableCell className="text-sm truncate max-w-[140px]">
+                                            {lead.company.website ? (
+                                                <Link
+                                                    href={lead.company.website.startsWith('http') ? lead.company.website : `https://${lead.company.website}`}
+                                                    target="_blank"
+                                                    className="text-blue-600 hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {lead.company.website}
+                                                </Link>
+                                            ) : <span className="text-muted-foreground">—</span>}
+                                        </TableCell>
+                                        <TableCell className="text-sm truncate max-w-[130px] capitalize">
+                                            {lead.contactPersons[0]?.firstName} {lead.contactPersons[0]?.lastName}
+                                        </TableCell>
+                                        <TableCell className="text-sm truncate max-w-[180px]">
+                                            {lead.contactPersons[0]?.emails?.[0] || <span className="text-muted-foreground">—</span>}
+                                        </TableCell>
+                                        <TableCell className="text-sm truncate max-w-[120px]">
+                                            {lead.contactPersons[0]?.phones?.[0] || <span className="text-muted-foreground">—</span>}
+                                        </TableCell>
+                                        <TableCell className="text-sm truncate max-w-[100px]">
+                                            {lead.country || <span className="text-muted-foreground">—</span>}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={cn(
+                                                "capitalize text-xs",
+                                                lead.status === 'new' && "bg-blue-50 text-blue-700 border-blue-200",
+                                                lead.status === 'interested' && "bg-green-50 text-green-700 border-green-200",
+                                                lead.status === 'not-interested' && "bg-red-50 text-red-700 border-red-200",
+                                                lead.status === 'call-back' && "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                            )}>
+                                                {lead.status.replace('-', ' ')}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Users className="h-8 w-8 text-muted-foreground/50" />
+                                            <p>No leads found</p>
+                                            {hasActiveFilters && (
+                                                <Button variant="link" size="sm" onClick={resetFilters}>Clear filters</Button>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === 1}
-                        onClick={() => setPage((p) => p - 1)}
-                        className="gap-1"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === pagination.totalPages}
-                        onClick={() => setPage((p) => p + 1)}
-                        className="gap-1"
-                    >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
+                {/* Pagination */}
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+                    <div className="text-sm text-muted-foreground">
+                        {pagination.totalItems > 0 ? (
+                            <>
+                                Showing <span className="font-medium text-foreground">{(page - 1) * perPage + 1}</span> to{' '}
+                                <span className="font-medium text-foreground">{Math.min(page * perPage, pagination.totalItems)}</span> of{' '}
+                                <span className="font-medium text-foreground">{pagination.totalItems}</span> leads
+                            </>
+                        ) : 'No leads to display'}
+                    </div>
 
-            {/* Create Task */}
-            <div className="pt-4 border-t">
-                <Button
-                    onClick={handleCreateTask}
-                    disabled={
-                        creating ||
-                        (!isAdmin && !user?._id) ||
-                        (isAdmin && !selectedUserId) ||
-                        selectedLeads.length === 0
-                    }
-                    size="lg"
-                >
-                    {creating ? <Spinner /> : 'Create Task'}
-                </Button>
-            </div>
-        </div>
+                    <div className="flex items-center gap-1">
+                        <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} className="gap-1">
+                            <ChevronLeft className="h-4 w-4" /> Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground mx-2">
+                            Page <span className="font-medium">{page}</span> of <span className="font-medium">{pagination.totalPages || 1}</span>
+                        </span>
+                        <Button variant="outline" size="sm" disabled={page === pagination.totalPages || pagination.totalPages === 0} onClick={() => setPage(p => p + 1)} className="gap-1">
+                            Next <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </CardContent>
+
+            {/* Floating Action Bar */}
+            {selectedLeads.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                    <div className="flex items-center gap-4 bg-primary text-primary-foreground px-6 py-3 rounded-full shadow-lg">
+                        <div className="flex items-center gap-2">
+                            <CheckSquare className="h-5 w-5" />
+                            <span className="font-medium">{selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selected</span>
+                        </div>
+                        <div className="w-px h-6 bg-primary-foreground/30" />
+                        <Button onClick={handleCreateTask} disabled={creating || !user?._id} size="sm" variant="secondary" className="gap-2">
+                            {creating ? <Spinner className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+                            Create Task
+                        </Button>
+                        <Button onClick={() => setSelectedLeads([])} size="sm" variant="ghost" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10">
+                            Cancel
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </Card>
     );
 }

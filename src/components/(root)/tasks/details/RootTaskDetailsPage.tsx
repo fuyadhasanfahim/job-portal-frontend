@@ -27,6 +27,8 @@ import { format } from 'date-fns';
 import {
     useGetTaskByIdQuery,
     useUpdateTaskWithLeadMutation,
+    useForceCompleteTaskMutation,
+    useRemoveLeadFromTaskMutation,
 } from '@/redux/features/task/taskApi';
 import { ITask } from '@/types/task.interface';
 import { ILead, IActivity } from '@/types/lead.interface';
@@ -39,22 +41,20 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, CheckCircle2, ClipboardList } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import LeadsTable from './LeadsTable';
+import { cn } from '@/lib/utils';
 
 // Lead status options
 const LEAD_STATUS = [
     'new',
-    'busy',
     'answering-machine',
     'interested',
     'not-interested',
     'call-back',
     'test-trial',
     'on-board',
-    'no-answer',
-    'email/whatsApp-sent',
     'language-barrier',
     'invalid-number',
 ];
@@ -80,7 +80,11 @@ export default function RootTaskDetailsPage() {
     });
     const [updateTaskWithLead, { isLoading: isUpdating }] =
         useUpdateTaskWithLeadMutation();
+    const [forceCompleteTask, { isLoading: isForceCompleting }] =
+        useForceCompleteTaskMutation();
+    const [removeLeadFromTask] = useRemoveLeadFromTaskMutation();
 
+    const isAdmin = user?.role === 'admin' || user?.role === 'super-admin';
     const task: ITask | null = data?.task ?? null;
     const leads: ILead[] = data?.leads ?? [];
 
@@ -143,86 +147,118 @@ export default function RootTaskDetailsPage() {
             </div>
         );
 
+    const handleForceComplete = async () => {
+        if (!task || !id) return;
+        try {
+            const res = await forceCompleteTask({ taskId: id }).unwrap();
+            if (res.success) {
+                toast.success('Task force completed successfully');
+            }
+        } catch (error) {
+            toast.error((error as Error).message || 'Failed to force complete task');
+        }
+    };
+
+    const handleRemoveLead = async (leadId: string) => {
+        if (!id) return;
+        try {
+            const res = await removeLeadFromTask({ taskId: id, leadId }).unwrap();
+            if (res.success) {
+                toast.success('Lead removed from task');
+            }
+        } catch (error) {
+            toast.error((error as Error).message || 'Failed to remove lead');
+        }
+    };
+
     if (!task)
         return <div className="p-6 text-muted-foreground">Task not found.</div>;
 
     return (
         <div className="space-y-6">
-            {/* 🟦 Task Info */}
+            {/* Task Info Card */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Task Information</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4 text-sm p-4">
-                    <div className="space-y-2">
-                        <p>
-                            <strong>Title:</strong> {task.title}
-                        </p>
-                        <p>
-                            <strong>Type:</strong> {task.type}
-                        </p>
-                        <p>
-                            <strong>Status:</strong>
-                            <Badge className="ml-2 capitalize">
-                                {task.status.replace('_', ' ')}
-                            </Badge>
-                        </p>
-                        <p>
-                            <strong>Progress:</strong> {task.progress ?? 0}%
-                        </p>
+                <CardHeader className="flex flex-row items-center justify-between pb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                            <ClipboardList className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-lg">{task.title}</CardTitle>
+                            <p className="text-sm text-muted-foreground capitalize">{task.type.replace('_', ' ')}</p>
+                        </div>
                     </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage
-                                    src={task.assignedTo?.image || ''}
+                    {isAdmin && task.status !== 'completed' && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleForceComplete}
+                            disabled={isForceCompleting}
+                            className="gap-2"
+                        >
+                            {isForceCompleting ? <Spinner className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                            Force Complete
+                        </Button>
+                    )}
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-0">
+                    {/* Status */}
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <Badge className={cn(
+                            "capitalize",
+                            task.status === 'completed' && "bg-green-100 text-green-700 border-green-200",
+                            task.status === 'in_progress' && "bg-blue-100 text-blue-700 border-blue-200",
+                            task.status === 'pending' && "bg-yellow-100 text-yellow-700 border-yellow-200",
+                            task.status === 'cancelled' && "bg-red-100 text-red-700 border-red-200"
+                        )}>
+                            {task.status.replace('_', ' ')}
+                        </Badge>
+                    </div>
+                    
+                    {/* Progress */}
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Progress</p>
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[100px]">
+                                <div 
+                                    className={cn("h-full transition-all", task.progress === 100 ? "bg-green-500" : "bg-primary")}
+                                    style={{ width: `${task.progress ?? 0}%` }}
                                 />
-                                <AvatarFallback>
+                            </div>
+                            <span className="text-sm font-medium">{task.progress ?? 0}%</span>
+                        </div>
+                    </div>
+                    
+                    {/* Assigned To */}
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Assigned To</p>
+                        <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                                <AvatarImage src={task.assignedTo?.image || ''} />
+                                <AvatarFallback className="text-xs">
                                     {task.assignedTo?.firstName?.[0]}
                                 </AvatarFallback>
                             </Avatar>
-                            <div>
-                                <p className="font-medium text-sm">
-                                    Assigned To
-                                </p>
-                                <p className="text-sm text-gray-700">
-                                    {task.assignedTo?.firstName}{' '}
-                                    {task.assignedTo?.lastName}
-                                </p>
-                            </div>
+                            <span className="text-sm">
+                                {task.assignedTo?.firstName} {task.assignedTo?.lastName}
+                            </span>
                         </div>
-
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage
-                                    src={task.createdBy?.image || ''}
-                                />
-                                <AvatarFallback>
+                    </div>
+                    
+                    {/* Created By */}
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Created By</p>
+                        <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                                <AvatarImage src={task.createdBy?.image || ''} />
+                                <AvatarFallback className="text-xs">
                                     {task.createdBy?.firstName?.[0]}
                                 </AvatarFallback>
                             </Avatar>
-                            <div>
-                                <p className="font-medium text-sm">
-                                    Created By
-                                </p>
-                                <p className="text-sm text-gray-700">
-                                    {task.createdBy?.firstName}{' '}
-                                    {task.createdBy?.lastName}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="text-sm space-y-1">
-                            <p>
-                                <strong>Created At:</strong>{' '}
-                                {format(task.createdAt, 'PPP')}
-                            </p>
-                            {task.finishedAt && (
-                                <p>
-                                    <strong>Finished At:</strong>{' '}
-                                    {format(task.finishedAt, 'PPP')}
-                                </p>
-                            )}
+                            <span className="text-sm">
+                                {task.createdBy?.firstName} {task.createdBy?.lastName}
+                            </span>
                         </div>
                     </div>
                 </CardContent>
@@ -230,8 +266,18 @@ export default function RootTaskDetailsPage() {
 
             {/* 🧩 Leads */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Leads ({leads.length})</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <CardTitle>Leads ({leads.length})</CardTitle>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                                {task?.completedLeads?.length || 0} completed
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
+                                {leads.length - (task?.completedLeads?.length || 0)} pending
+                            </span>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <LeadsTable

@@ -83,10 +83,10 @@ export default function RootDashboardPage() {
 
     // Admin Dashboard
     if (isAdmin) {
-        const summary = analyticsData?.summary || { today: 0, month: 0, year: 0, total: 0 };
-        const monthly: MonthlyData[] = analyticsData?.monthly || [];
-        const byCountry: CountryData[] = analyticsData?.byCountry || [];
-        const topUsers: TopUser[] = topUsersData || [];
+        const summary = analyticsData?.data?.summary || { today: 0, month: 0, year: 0, total: 0 };
+        const monthly: MonthlyData[] = analyticsData?.data?.monthly || [];
+        const byCountry: CountryData[] = analyticsData?.data?.byCountry || [];
+        const topUsers: TopUser[] = topUsersData?.data || [];
 
         return (
             <div className="space-y-6">

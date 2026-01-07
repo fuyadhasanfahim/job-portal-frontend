@@ -84,7 +84,7 @@ export const leadApi = apiSlice.injectEndpoints({
                 method: 'DELETE',
                 body: { reason },
             }),
-            invalidatesTags: ['Leads'],
+            invalidatesTags: ['Leads', 'Tasks'],
         }),
         searchLeadByCompany: builder.query({
             query: ({
@@ -158,7 +158,21 @@ export const leadApi = apiSlice.injectEndpoints({
                 method: 'POST',
                 body: { leadIds, targetGroupId },
             }),
-            invalidatesTags: ['Leads'],
+            invalidatesTags: ['Leads', 'Tasks'],
+        }),
+        bulkDeleteLeads: builder.mutation({
+            query: ({
+                leadIds,
+                reason,
+            }: {
+                leadIds: string[];
+                reason?: string;
+            }) => ({
+                url: '/leads/bulk-delete',
+                method: 'POST',
+                body: { leadIds, reason },
+            }),
+            invalidatesTags: ['Leads', 'Tasks'],
         }),
     }),
 });
@@ -176,4 +190,5 @@ export const {
     useBulkAssignLeadsMutation,
     useLazyGetAllMatchingLeadIdsQuery,
     useBulkChangeGroupMutation,
+    useBulkDeleteLeadsMutation,
 } = leadApi;
