@@ -34,6 +34,8 @@ export interface ITask {
         total?: number;
     };
 
+    completedLeads?: string[];
+
     createdAt: Date;
     updatedAt: Date;
 }

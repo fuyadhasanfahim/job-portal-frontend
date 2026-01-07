@@ -159,17 +159,7 @@ export default function RootTaskDetailsPage() {
         }
     };
 
-    const handleRemoveLead = async (leadId: string) => {
-        if (!id) return;
-        try {
-            const res = await removeLeadFromTask({ taskId: id, leadId }).unwrap();
-            if (res.success) {
-                toast.success('Lead removed from task');
-            }
-        } catch (error) {
-            toast.error((error as Error).message || 'Failed to remove lead');
-        }
-    };
+
 
     if (!task)
         return <div className="p-6 text-muted-foreground">Task not found.</div>;
