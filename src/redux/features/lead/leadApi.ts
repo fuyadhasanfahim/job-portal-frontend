@@ -23,6 +23,7 @@ export const leadApi = apiSlice.injectEndpoints({
                 selectedUserId,
                 group,
                 source,
+                contactFilter,
             }) => ({
                 url: '/leads/get-leads',
                 method: 'GET',
@@ -38,6 +39,7 @@ export const leadApi = apiSlice.injectEndpoints({
                     selectedUserId,
                     group,
                     source,
+                    contactFilter,
                 },
             }),
             providesTags: ['Leads'],

@@ -48,7 +48,8 @@ import {
     Check,
     Folder,
     RotateCcw,
-
+    Mail,
+    Phone,
     ClipboardList,
 } from 'lucide-react';
 import { useGetLeadsQuery, useDeleteLeadMutation, useBulkAssignLeadsMutation, useLazyGetAllMatchingLeadIdsQuery, useBulkChangeGroupMutation } from '@/redux/features/lead/leadApi';
@@ -124,6 +125,7 @@ export default function LeadsTable() {
     const [open, setOpen] = React.useState(false);
     const [groupFilter, setGroupFilter] = React.useState(getParamValue('group', 'all'));
     const [sourceFilter, setSourceFilter] = React.useState(getParamValue('source', 'all'));
+    const [contactFilter, setContactFilter] = React.useState<'all' | 'email-only' | 'phone-only' | 'email-with-phone'>(getParamValue('contactFilter', 'all') as 'all' | 'email-only' | 'phone-only' | 'email-with-phone');
     const [deleteDialog, setDeleteDialog] = React.useState<{
         open: boolean;
         id: string;
@@ -138,6 +140,12 @@ export default function LeadsTable() {
     // Bulk group change states
     const [groupChangeDialogOpen, setGroupChangeDialogOpen] = React.useState(false);
     const [changeToGroupId, setChangeToGroupId] = React.useState<string>('');
+    
+    // Bulk create task state
+    const [taskUserId, setTaskUserId] = React.useState<string>('');
+    
+    // Selection mode toggle
+    const [isSelectionMode, setIsSelectionMode] = React.useState(false);
 
     // Debounced search
     const [debouncedSearch, setDebouncedSearch] = React.useState(search);
@@ -176,12 +184,13 @@ export default function LeadsTable() {
         if (date) params.set('date', date.toISOString().split('T')[0]);
         if (groupFilter !== 'all') params.set('group', groupFilter);
         if (sourceFilter !== 'all') params.set('source', sourceFilter);
+        if (contactFilter !== 'all') params.set('contactFilter', contactFilter);
 
         const queryString = params.toString();
         const newUrl = queryString ? `?${queryString}` : window.location.pathname;
 
         router.replace(newUrl, { scroll: false });
-    }, [search, countryFilter, sort, page, perPage, status, selectedRole, selectedUserId, date, groupFilter, sourceFilter, router]);
+    }, [search, countryFilter, sort, page, perPage, status, selectedRole, selectedUserId, date, groupFilter, sourceFilter, contactFilter, router]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -203,6 +212,7 @@ export default function LeadsTable() {
         setDate(undefined);
         setGroupFilter('all');
         setSourceFilter('all');
+        setContactFilter('all');
         setSelectedLeads(new Set());
         router.replace(window.location.pathname, { scroll: false });
     };
@@ -210,7 +220,7 @@ export default function LeadsTable() {
     // Check if any filter is active
     const hasActiveFilters = search || countryFilter !== 'all' || sort !== 'dateDesc' ||
         status !== 'all' || selectedRole !== 'all-role' || selectedUserId !== 'all-user' ||
-        date || groupFilter !== 'all' || sourceFilter !== 'all';
+        date || groupFilter !== 'all' || sourceFilter !== 'all' || contactFilter !== 'all';
 
     const getSortParams = () => {
         switch (sort) {
@@ -236,7 +246,7 @@ export default function LeadsTable() {
 
     const { sortBy, sortOrder } = getSortParams();
 
-    const { data, isLoading, isError } = useGetLeadsQuery({
+    const { data, isLoading, isError, isFetching } = useGetLeadsQuery({
         page,
         limit: perPage,
         search: debouncedSearch,
@@ -248,6 +258,7 @@ export default function LeadsTable() {
         date: date ? date.toLocaleDateString('en-CA') : '',
         group: groupFilter !== 'all' ? groupFilter : undefined,
         source: sourceFilter !== 'all' ? sourceFilter : undefined,
+        contactFilter: contactFilter !== 'all' ? contactFilter : undefined,
     });
 
     const leads = data?.data ?? [];
@@ -286,6 +297,37 @@ export default function LeadsTable() {
     return (
         <Card className="shadow-sm">
             <CardContent className="p-6">
+                {/* Contact Info Filter Tabs */}
+                <div className="mb-4">
+                    <Tabs
+                        value={contactFilter}
+                        onValueChange={(val) => {
+                            setContactFilter(val as 'all' | 'email-only' | 'phone-only' | 'email-with-phone');
+                            setPage(1);
+                        }}
+                    >
+                        <TabsList className="h-9">
+                            <TabsTrigger value="all" className="text-xs px-4 gap-1.5">
+                                📋 All Leads
+                            </TabsTrigger>
+                            <TabsTrigger value="email-with-phone" className="text-xs px-4 gap-1.5">
+                                <Mail className="h-3.5 w-3.5" />
+                                <Phone className="h-3.5 w-3.5" />
+                                Email + Phone
+                            </TabsTrigger>
+                            <TabsTrigger value="email-only" className="text-xs px-4 gap-1.5">
+                                <Mail className="h-3.5 w-3.5" />
+                                Email Only
+                            </TabsTrigger>
+                            <TabsTrigger value="phone-only" className="text-xs px-4 gap-1.5">
+                                <Phone className="h-3.5 w-3.5" />
+                                Phone Only
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
+
+                {/* Status Filter Tabs */}
                 <Tabs
                     defaultValue="all"
                     value={status}
@@ -469,47 +511,63 @@ export default function LeadsTable() {
                                 <span className="text-muted-foreground">
                                     Total: <strong className="text-foreground">{pagination.totalItems}</strong> leads
                                 </span>
+                                
+                                {/* Select Mode Toggle Button */}
                                 <Button
-                                    variant="outline"
+                                    variant={isSelectionMode ? "default" : "outline"}
                                     size="sm"
-                                    disabled={isLoadingAllIds}
-                                    onClick={async () => {
-                                        try {
-                                            const result = await getAllMatchingLeadIds({
-                                                search,
-                                                status: status !== 'all' ? status : undefined,
-                                                country: countryFilter !== 'all' ? countryFilter : undefined,
-                                                selectedUserId: selectedUserId !== 'all-user' ? selectedUserId : undefined,
-                                                group: groupFilter !== 'all' ? groupFilter : undefined,
-                                            }).unwrap();
-
-                                            if (result.leadIds) {
-                                                setSelectedLeads(new Set(result.leadIds));
-                                                toast.success(`Selected ${result.leadIds.length} leads`);
-                                            }
-                                        } catch {
-                                            toast.error('Failed to select all leads');
+                                    onClick={() => {
+                                        setIsSelectionMode(!isSelectionMode);
+                                        if (isSelectionMode) {
+                                            setSelectedLeads(new Set());
                                         }
                                     }}
                                     className="h-7 text-xs gap-1.5"
                                 >
-                                    {isLoadingAllIds ? 'Loading...' : (
-                                        <>
-                                            <Check className="w-3.5 h-3.5" />
-                                            Select All
-                                        </>
-                                    )}
+                                    <Check className="w-3.5 h-3.5" />
+                                    {isSelectionMode ? 'Exit Select' : 'Select'}
                                 </Button>
-                                {selectedLeads.size > 0 && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setSelectedLeads(new Set())}
-                                        className="h-7 text-xs text-muted-foreground"
-                                    >
-                                        <X className="w-3.5 h-3.5 mr-1" />
-                                        Clear ({selectedLeads.size})
-                                    </Button>
+                                
+                                {isSelectionMode && (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={isLoadingAllIds}
+                                            onClick={async () => {
+                                                try {
+                                                    const result = await getAllMatchingLeadIds({
+                                                        search,
+                                                        status: status !== 'all' ? status : undefined,
+                                                        country: countryFilter !== 'all' ? countryFilter : undefined,
+                                                        selectedUserId: selectedUserId !== 'all-user' ? selectedUserId : undefined,
+                                                        group: groupFilter !== 'all' ? groupFilter : undefined,
+                                                    }).unwrap();
+
+                                                    if (result.leadIds) {
+                                                        setSelectedLeads(new Set(result.leadIds));
+                                                        toast.success(`Selected ${result.leadIds.length} leads`);
+                                                    }
+                                                } catch {
+                                                    toast.error('Failed to select all leads');
+                                                }
+                                            }}
+                                            className="h-7 text-xs gap-1.5"
+                                        >
+                                            {isLoadingAllIds ? 'Loading...' : 'Select All'}
+                                        </Button>
+                                        {selectedLeads.size > 0 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSelectedLeads(new Set())}
+                                                className="h-7 text-xs text-muted-foreground"
+                                            >
+                                                <X className="w-3.5 h-3.5 mr-1" />
+                                                Clear ({selectedLeads.size})
+                                            </Button>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         )}
@@ -519,23 +577,25 @@ export default function LeadsTable() {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                        <TableHead className="w-10 text-center">
-                                            <Checkbox
-                                                checked={leads.length > 0 && leads.every((lead: ILead) => selectedLeads.has(lead._id))}
-                                                onCheckedChange={(checked) => {
-                                                    if (checked) {
-                                                        const newSet = new Set(selectedLeads);
-                                                        leads.forEach((lead: ILead) => newSet.add(lead._id));
-                                                        setSelectedLeads(newSet);
-                                                    } else {
-                                                        const newSet = new Set(selectedLeads);
-                                                        leads.forEach((lead: ILead) => newSet.delete(lead._id));
-                                                        setSelectedLeads(newSet);
-                                                    }
-                                                }}
-                                                aria-label="Select all"
-                                            />
-                                        </TableHead>
+                                        {isSelectionMode && (
+                                            <TableHead className="w-10 text-center">
+                                                <Checkbox
+                                                    checked={leads.length > 0 && leads.every((lead: ILead) => selectedLeads.has(lead._id))}
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked) {
+                                                            const newSet = new Set(selectedLeads);
+                                                            leads.forEach((lead: ILead) => newSet.add(lead._id));
+                                                            setSelectedLeads(newSet);
+                                                        } else {
+                                                            const newSet = new Set(selectedLeads);
+                                                            leads.forEach((lead: ILead) => newSet.delete(lead._id));
+                                                            setSelectedLeads(newSet);
+                                                        }
+                                                    }}
+                                                    aria-label="Select all"
+                                                />
+                                            </TableHead>
+                                        )}
                                         <TableHead className="text-xs font-semibold">Company</TableHead>
                                         <TableHead className="text-xs font-semibold">Website</TableHead>
                                         <TableHead className="text-xs font-semibold w-[140px]">Name</TableHead>
@@ -549,7 +609,7 @@ export default function LeadsTable() {
                                 </TableHeader>
 
                                 <TableBody>
-                                    {isLoading && !leads.length ? (
+                                    {(isLoading || isFetching) ? (
                                         <TableSkeleton />
                                     ) : isError ? (
                                         <TableRow>
@@ -567,24 +627,33 @@ export default function LeadsTable() {
                                                     key={lead._id}
                                                     className={`${selectedLeads.has(lead._id) ? 'bg-primary/5' : ''} hover:bg-muted/30`}
                                                 >
-                                                    <TableCell className="text-center py-2.5">
-                                                        <Checkbox
-                                                            checked={selectedLeads.has(lead._id)}
-                                                            onCheckedChange={(checked) => {
-                                                                const newSet = new Set(selectedLeads);
-                                                                if (checked) {
-                                                                    newSet.add(lead._id);
-                                                                } else {
-                                                                    newSet.delete(lead._id);
-                                                                }
-                                                                setSelectedLeads(newSet);
-                                                            }}
-                                                            aria-label={`Select ${lead.company.name}`}
-                                                        />
-                                                    </TableCell>
+                                                    {isSelectionMode && (
+                                                        <TableCell className="text-center py-2.5">
+                                                            <Checkbox
+                                                                checked={selectedLeads.has(lead._id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const newSet = new Set(selectedLeads);
+                                                                    if (checked) {
+                                                                        newSet.add(lead._id);
+                                                                    } else {
+                                                                        newSet.delete(lead._id);
+                                                                    }
+                                                                    setSelectedLeads(newSet);
+                                                                }}
+                                                                aria-label={`Select ${lead.company.name}`}
+                                                            />
+                                                        </TableCell>
+                                                    )}
 
-                                                    <TableCell className="font-medium text-sm max-w-[150px] truncate py-2.5">
-                                                        {lead.company.name}
+                                                    <TableCell className="font-medium text-sm max-w-[150px] py-2.5">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="truncate">{lead.company.name}</span>
+                                                            {lead.source === 'imported' && (
+                                                                <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded" title="Imported">
+                                                                    📥
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
 
                                                     <TableCell className="text-sm max-w-[150px] truncate py-2.5">
@@ -865,6 +934,40 @@ export default function LeadsTable() {
                             {isChangingGroup ? 'Moving...' : <><Folder className="w-4 h-4" />Move</>}
                         </Button>
 
+                        <div className="w-px h-6 bg-border" />
+
+                        {/* Create Task Section */}
+                        {isAdmin && (
+                            <Select value={taskUserId} onValueChange={setTaskUserId}>
+                                <SelectTrigger className="w-[160px] h-8 text-sm bg-background">
+                                    <ClipboardList className="w-4 h-4 mr-2 text-muted-foreground" />
+                                    <SelectValue placeholder="Assign task to..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {usersData?.users?.map((u: IUser) => (
+                                        <SelectItem key={u._id} value={u._id}>
+                                            <span className="font-medium">{u.firstName} {u.lastName}</span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+
+                        <Button
+                            onClick={() => {
+                                const leadIds = Array.from(selectedLeads).join(',');
+                                const url = isAdmin && taskUserId
+                                    ? `/tasks/create-task?leads=${leadIds}&assignTo=${taskUserId}`
+                                    : `/tasks/create-task?leads=${leadIds}`;
+                                router.push(url);
+                            }}
+                            className="gap-1.5 h-8"
+                            size="sm"
+                        >
+                            <ClipboardList className="w-4 h-4" />
+                            Create Task
+                        </Button>
+
                         <Button
                             variant="ghost"
                             size="icon"
@@ -872,6 +975,7 @@ export default function LeadsTable() {
                                 setSelectedLeads(new Set());
                                 setAssignToUserId('');
                                 setChangeToGroupId('');
+                                setTaskUserId('');
                             }}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         >

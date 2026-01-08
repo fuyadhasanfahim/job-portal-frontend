@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@/redux/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +44,7 @@ import {
 
 const ROLES = [
     { value: 'admin', label: 'Admin' },
+    { value: 'team-leader', label: 'Team Leader' },
     { value: 'telemarketer', label: 'Telemarketer' },
     { value: 'digital-marketer', label: 'Digital Marketer' },
     { value: 'seo-executive', label: 'SEO Executive' },
@@ -51,11 +54,23 @@ const ROLES = [
     { value: 'graphic-designer', label: 'Graphic Designer' },
 ];
 
+// Roles that team-leader can invite
+const TEAM_LEADER_ALLOWED_ROLES = ['telemarketer'];
+
 export default function InvitationsPage() {
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('');
     const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
     const [selectedInvitationId, setSelectedInvitationId] = useState<string | null>(null);
+
+    // Get current user's role
+    const { user } = useSelector((state: RootState) => state.user);
+    const isTeamLeader = user?.role === 'team-leader';
+    
+    // Filter roles based on current user's role
+    const availableRoles = isTeamLeader 
+        ? ROLES.filter(r => TEAM_LEADER_ALLOWED_ROLES.includes(r.value))
+        : ROLES;
 
     const { data: invitationsData, isLoading } = useGetInvitationsQuery({});
     const [createInvitation, { isLoading: isCreating }] = useCreateInvitationMutation();
@@ -158,7 +173,7 @@ export default function InvitationsPage() {
                                 <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>
-                                {ROLES.map((r) => (
+                                {availableRoles.map((r) => (
                                     <SelectItem key={r.value} value={r.value}>
                                         {r.label}
                                     </SelectItem>

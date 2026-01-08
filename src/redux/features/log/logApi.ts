@@ -41,6 +41,25 @@ export const logApi = apiSlice.injectEndpoints({
                 )}`,
             providesTags: ['Logs', 'User'],
         }),
+        // NEW: Get activity logs (Admin)
+        getActivityLogs: builder.query({
+            query: ({ page = 1, limit = 20, search = '', userId, action, entityType, startDate, endDate, level }) => {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    limit: limit.toString(),
+                    search,
+                });
+                if (userId) params.append('userId', userId);
+                if (action) params.append('action', action);
+                if (entityType) params.append('entityType', entityType);
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+                if (level) params.append('level', level);
+
+                return `/logs/get-activity-logs?${params.toString()}`;
+            },
+            providesTags: ['Logs'],
+        }),
     }),
 });
 
@@ -50,4 +69,5 @@ export const {
     useGetUserLeadStatsQuery,
     useGetTopUsersPieChartQuery,
     useGetAllUsersTableQuery,
+    useGetActivityLogsQuery,
 } = logApi;

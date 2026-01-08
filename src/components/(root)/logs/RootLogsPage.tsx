@@ -1,638 +1,336 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useState } from 'react';
-import {
-    useGetLeadAnalyticsQuery,
-    useGetUserLeadStatsQuery,
-    useGetTopUsersPieChartQuery,
-    useGetAllUsersTableQuery,
-} from '@/redux/features/log/logApi';
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-} from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
 import {
     Table,
-    TableHeader,
-    TableHead,
-    TableRow,
     TableBody,
     TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
     Select,
-    SelectContent,
-    SelectItem,
     SelectTrigger,
     SelectValue,
+    SelectContent,
+    SelectItem,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { 
+    ChevronLeft, 
+    ChevronRight, 
+    Search, 
+    RotateCcw, 
+    Activity, 
+    Calendar as CalendarIcon,
+    AlertCircle,
+    Info,
+    AlertTriangle,
+    Shield
+} from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 import {
-    LineChart,
-    Line,
-    BarChart,
-    Bar,
-    PieChart,
-    Pie,
-    Cell,
-    CartesianGrid,
-    XAxis,
-    YAxis,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-} from 'recharts';
-import { Calendar, Users, TrendingUp } from 'lucide-react';
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { useGetActivityLogsQuery } from '@/redux/features/log/logApi';
+import { useGetAllUsersQuery } from '@/redux/features/user/userApi';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-const COLORS = [
-    '#009999',
-    '#ff6a00',
-    '#2563eb',
-    '#10b981',
-    '#f59e0b',
-    '#ef4444',
-    '#8b5cf6',
-    '#ec4899',
-    '#06b6d4',
-    '#84cc16',
+const ENTITY_TYPES = [
+    'lead', 'task', 'user', 'system', 'trash', 'group', 'invitation', 'other'
 ];
 
+const LOG_LEVELS = ['info', 'warning', 'error', 'debug'];
+
 export default function RootLogsPage() {
-    const [selectedMonth, setSelectedMonth] = useState<string>('');
-    const [barChartPeriod, setBarChartPeriod] = useState<string>('daily');
-    const [pieChartPeriod, setPieChartPeriod] = useState<string>('daily');
-    const [tablePage, setTablePage] = useState<number>(1);
-    const [tableSearch, setTableSearch] = useState<string>('');
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [userId, setUserId] = useState('all');
+    const [entityType, setEntityType] = useState('all');
+    const [level, setLevel] = useState('all');
+    const [date, setDate] = useState<Date | undefined>(undefined);
 
-    // Queries
-    const { data: analytics, isLoading: loadingAnalytics } =
-        useGetLeadAnalyticsQuery(selectedMonth);
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
 
-    const { data: userStats, isLoading: loadingUserStats } =
-        useGetUserLeadStatsQuery(barChartPeriod);
+    // Fetch logs
+    const { data, isLoading, isFetching } = useGetActivityLogsQuery({
+        page,
+        limit,
+        search: debouncedSearch,
+        userId: userId !== 'all' ? userId : undefined,
+        entityType: entityType !== 'all' ? entityType : undefined,
+        level: level !== 'all' ? level : undefined,
+        startDate: date ? format(date, 'yyyy-MM-dd') : undefined,
+        endDate: date ? format(date, 'yyyy-MM-dd') : undefined, // For single day filter
+    });
 
-    const { data: pieChartData, isLoading: loadingPieChart } =
-        useGetTopUsersPieChartQuery({ period: pieChartPeriod, limit: 10 });
+    const logs = data?.logs ?? [];
+    const pagination = data?.pagination ?? { totalItems: 0, totalPages: 1 };
 
-    const { data: usersTable, isLoading: loadingUsersTable } =
-        useGetAllUsersTableQuery({
-            page: tablePage,
-            limit: 10,
-            search: tableSearch,
-        });
+    // Fetch users for filter
+    const { data: usersData } = useGetAllUsersQuery({ role: 'all', includeAdmins: true });
+    const users = usersData?.users ?? [];
 
-    const hourlyData = analytics?.data?.hourly || [];
-    const dailyData = analytics?.data?.daily || [];
-    const monthlyData = analytics?.data?.monthly || [];
-
-    // Transform user stats data for bar chart
-    const transformedBarChartData = React.useMemo(() => {
-        if (!userStats?.data) return [];
-
-        const groupedData: Record<string, any> = {};
-
-        userStats.data.forEach((stat: any) => {
-            const period = stat.period;
-            if (!groupedData[period]) {
-                groupedData[period] = { period };
-            }
-            groupedData[period][`${stat.userName}_new`] = stat.newCount;
-            groupedData[period][`${stat.userName}_notNew`] = stat.notNewCount;
-            groupedData[period][stat.userName] = stat.totalCount;
-        });
-
-        return Object.values(groupedData);
-    }, [userStats]);
-
-    // Get unique users for bar chart
-    const uniqueUsers = React.useMemo((): string[] => {
-        if (!userStats?.data) return [];
-        const users = new Set(userStats.data.map((stat: any) => stat.userName));
-        return Array.from(users) as string[];
-    }, [userStats]);
-
-    // Custom tooltip for bar chart
-    const CustomBarTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-background border rounded-lg p-3 shadow-lg">
-                    <p className="font-semibold mb-2">{label}</p>
-                    {payload.map((entry: any, index: number) => (
-                        <div key={index} className="flex items-center gap-2 text-sm">
-                            <div
-                                className="w-3 h-3 rounded"
-                                style={{ backgroundColor: entry.color }}
-                            />
-                            <span>{entry.name}:</span>
-                            <span className="font-semibold">{entry.value}</span>
-                        </div>
-                    ))}
-                </div>
-            );
-        }
-        return null;
+    const handleReset = () => {
+        setSearch('');
+        setUserId('all');
+        setEntityType('all');
+        setLevel('all');
+        setDate(undefined);
+        setPage(1);
     };
 
-    // Custom tooltip for pie chart
-    const CustomPieTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            return (
-                <div className="bg-background border rounded-lg p-3 shadow-lg">
-                    <p className="font-semibold mb-2">{data.userName}</p>
-                    <div className="space-y-1 text-sm">
-                        <div className="flex justify-between gap-4">
-                            <span>New:</span>
-                            <span className="font-semibold text-green-600">
-                                {data.newCount}
-                            </span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                            <span>Not New:</span>
-                            <span className="font-semibold text-blue-600">
-                                {data.notNewCount}
-                            </span>
-                        </div>
-                        <div className="flex justify-between gap-4 border-t pt-1">
-                            <span>Total:</span>
-                            <span className="font-bold">{data.totalCount}</span>
-                        </div>
-                    </div>
-                </div>
-            );
+    const hasFilters = search || userId !== 'all' || entityType !== 'all' || level !== 'all' || date;
+
+    const getLevelBadge = (lvl: string) => {
+        switch (lvl) {
+            case 'error': return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" /> Error</Badge>;
+            case 'warning': return <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50 gap-1"><AlertTriangle className="h-3 w-3" /> Warning</Badge>;
+            case 'debug': return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50 gap-1"><Shield className="h-3 w-3" /> Debug</Badge>;
+            default: return <Badge variant="secondary" className="gap-1"><Info className="h-3 w-3" /> Info</Badge>;
         }
-        return null;
     };
 
     return (
-        <div className="space-y-8 p-6">
-            {/* Heading */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Lead Analytics Dashboard
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Comprehensive overview of lead performance and user activity
+                    <h1 className="text-2xl font-bold tracking-tight">System Logs</h1>
+                    <p className="text-muted-foreground text-sm">
+                        Monitor system activities and user actions.
                     </p>
                 </div>
-
-                {/* Month Filter */}
-                <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-muted-foreground" />
-                    <Input
-                        type="month"
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="w-[160px]"
-                    />
-                </div>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {loadingAnalytics ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-24 w-full rounded-xl" />
-                    ))
-                ) : (
-                    <>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Today</CardTitle>
-                                <CardDescription>Leads created today</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-3xl font-bold">
-                                    {analytics?.data?.summary?.today ?? 0}
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>This Month</CardTitle>
-                                <CardDescription>
-                                    Leads created this month
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-3xl font-bold">
-                                    {analytics?.data?.summary?.month ?? 0}
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>This Year</CardTitle>
-                                <CardDescription>
-                                    Leads created this year
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-3xl font-bold">
-                                    {analytics?.data?.summary?.year ?? 0}
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Total</CardTitle>
-                                <CardDescription>All-time leads</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-3xl font-bold">
-                                    {analytics?.data?.summary?.total ?? 0}
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
-            </div>
-
-            {/* User Lead Statistics Bar Chart */}
             <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div>
-                            <CardTitle className="flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5" />
-                                User Lead Creation Statistics
-                            </CardTitle>
-                            <CardDescription>
-                                Compare lead creation across users (hover for details)
-                            </CardDescription>
+                <CardHeader className="pb-4">
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-primary" />
+                        Log Filters
+                    </CardTitle>
+                    <CardDescription>Filter logs by user, type, level or date</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Search */}
+                        <div className="relative w-full md:w-auto md:min-w-[200px]">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search logs..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="pl-9 h-9"
+                            />
                         </div>
-                        <Select
-                            value={barChartPeriod}
-                            onValueChange={setBarChartPeriod}
-                        >
-                            <SelectTrigger className="w-[140px]">
-                                <SelectValue placeholder="Select period" />
+
+                        {/* User Filter */}
+                        <Select value={userId} onValueChange={(val) => { setUserId(val); setPage(1); }}>
+                            <SelectTrigger className="h-9 w-[150px]">
+                                <SelectValue placeholder="User" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="hourly">Hourly</SelectItem>
-                                <SelectItem value="daily">Daily</SelectItem>
-                                <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="monthly">Monthly</SelectItem>
+                                <SelectItem value="all">All Users</SelectItem>
+                                {users.map((u: any) => (
+                                    <SelectItem key={u._id} value={u._id}>
+                                        {u.firstName} {u.lastName}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-96">
-                        {loadingUserStats ? (
-                            <Skeleton className="h-full w-full rounded-md" />
-                        ) : transformedBarChartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={transformedBarChartData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis
-                                        dataKey="period"
-                                        angle={-45}
-                                        textAnchor="end"
-                                        height={80}
-                                    />
-                                    <YAxis />
-                                    <Tooltip content={<CustomBarTooltip />} />
-                                    <Legend />
-                                    {uniqueUsers.map((user: string, index: number) => (
-                                        <Bar
-                                            key={user}
-                                            dataKey={user}
-                                            fill={COLORS[index % COLORS.length]}
-                                            stackId="a"
-                                        />
-                                    ))}
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-muted-foreground">
-                                No data available for selected period
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
 
-            {/* Top Users Pie Chart */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="w-5 h-5" />
-                                Top Users by Lead Creation
-                            </CardTitle>
-                            <CardDescription>
-                                Top 10 users ranked by total leads created
-                            </CardDescription>
-                        </div>
-                        <Select
-                            value={pieChartPeriod}
-                            onValueChange={setPieChartPeriod}
-                        >
-                            <SelectTrigger className="w-[140px]">
-                                <SelectValue placeholder="Select period" />
+                        {/* Entity Type Filter */}
+                        <Select value={entityType} onValueChange={(val) => { setEntityType(val); setPage(1); }}>
+                            <SelectTrigger className="h-9 w-[140px]">
+                                <SelectValue placeholder="Entity Type" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="hourly">Hourly</SelectItem>
-                                <SelectItem value="daily">Daily (30 days)</SelectItem>
-                                <SelectItem value="monthly">Monthly (1 year)</SelectItem>
+                                <SelectItem value="all">All Types</SelectItem>
+                                {ENTITY_TYPES.map((t) => (
+                                    <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-96">
-                        {loadingPieChart ? (
-                            <Skeleton className="h-full w-full rounded-md" />
-                        ) : pieChartData?.data && pieChartData.data.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={pieChartData.data}
-                                        dataKey="totalCount"
-                                        nameKey="userName"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={120}
-                                        label={(entry) =>
-                                            `${entry.userName}: ${entry.totalCount}`
-                                        }
-                                    >
-                                        {pieChartData.data.map((_: any, index: number) => (
-                                            <Cell
-                                                key={`cell-${index}`}
-                                                fill={COLORS[index % COLORS.length]}
-                                            />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip content={<CustomPieTooltip />} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-muted-foreground">
-                                No data available for selected period
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
 
-            {/* Lead Growth Trends */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Lead Growth Trends</CardTitle>
-                    <CardDescription>
-                        Hourly, daily, and monthly analytics
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Tabs defaultValue="daily" className="w-full">
-                        <TabsList>
-                            <TabsTrigger value="hourly">Hourly</TabsTrigger>
-                            <TabsTrigger value="daily">Daily</TabsTrigger>
-                            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                        </TabsList>
+                        {/* Level Filter */}
+                        <Select value={level} onValueChange={(val) => { setLevel(val); setPage(1); }}>
+                            <SelectTrigger className="h-9 w-[120px]">
+                                <SelectValue placeholder="Level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Levels</SelectItem>
+                                {LOG_LEVELS.map((l) => (
+                                    <SelectItem key={l} value={l} className="capitalize">{l}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
-                        <TabsContent value="hourly">
-                            <div className="h-80">
-                                {loadingAnalytics ? (
-                                    <Skeleton className="h-80 w-full rounded-md" />
-                                ) : (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={hourlyData}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis
-                                                dataKey="hour"
-                                                label={{
-                                                    value: 'Hour',
-                                                    position: 'insideBottom',
-                                                    offset: -5,
-                                                }}
-                                            />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="count"
-                                                stroke="#009999"
-                                                strokeWidth={2}
-                                                dot
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                )}
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="daily">
-                            <div className="h-80">
-                                {loadingAnalytics ? (
-                                    <Skeleton className="h-80 w-full rounded-md" />
-                                ) : (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={dailyData}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="count"
-                                                stroke="#ff6a00"
-                                                strokeWidth={2}
-                                                dot
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                )}
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="monthly">
-                            <div className="h-80">
-                                {loadingAnalytics ? (
-                                    <Skeleton className="h-80 w-full rounded-md" />
-                                ) : (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={monthlyData}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="month" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="count"
-                                                stroke="#2563eb"
-                                                strokeWidth={2}
-                                                dot
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                )}
-                            </div>
-                        </TabsContent>
-                    </Tabs>
-                </CardContent>
-            </Card>
-
-            {/* All Users Table */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>All Users (Excluding Admins)</CardTitle>
-                    <CardDescription>
-                        Complete user list with lead statistics
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loadingUsersTable ? (
-                        <Skeleton className="h-96 w-full rounded-md" />
-                    ) : (
-                        <>
-                            <div className="flex justify-end pb-3">
-                                <Input
-                                    placeholder="Search users..."
-                                    value={tableSearch}
-                                    onChange={(e) => setTableSearch(e.target.value)}
-                                    className="max-w-xs"
+                        {/* Date Filter */}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-[180px] h-9 justify-start text-left font-normal",
+                                        !date && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={date}
+                                    onSelect={(d) => { setDate(d); setPage(1); }}
+                                    initialFocus
                                 />
-                            </div>
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>User</TableHead>
-                                            <TableHead>Email</TableHead>
-                                            <TableHead>Role</TableHead>
-                                            <TableHead className="text-right">
-                                                New Leads
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                Not New
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                Total Leads
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {usersTable?.users?.length ? (
-                                            usersTable.users.map(
-                                                (
-                                                    u: {
-                                                        image: string;
-                                                        firstName: string;
-                                                        lastName: string;
-                                                        email: string;
-                                                        role: string;
-                                                        newLeads: number;
-                                                        notNewLeads: number;
-                                                        totalLeads: number;
-                                                    },
-                                                    idx: number
-                                                ) => (
-                                                    <TableRow key={idx}>
-                                                        <TableCell className="flex items-center gap-3">
-                                                            <Avatar>
-                                                                <AvatarImage
-                                                                    src={u.image || ''}
-                                                                />
-                                                                <AvatarFallback>
-                                                                    {u.firstName?.[0] ?? '?'}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <div>
-                                                                <p className="font-medium">
-                                                                    {u.firstName} {u.lastName}
-                                                                </p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>{u.email}</TableCell>
-                                                        <TableCell>
-                                                            <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-primary/10 text-primary">
-                                                                {u.role}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-semibold text-green-600">
-                                                            {u.newLeads}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-semibold text-blue-600">
-                                                            {u.notNewLeads}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-bold">
-                                                            {u.totalLeads}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )
-                                            )
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={6}
-                                                    className="text-center text-muted-foreground h-32"
-                                                >
-                                                    No user data found.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            </PopoverContent>
+                        </Popover>
 
-                            {/* Pagination */}
-                            {usersTable?.pagination && (
-                                <div className="flex items-center justify-between pt-4">
-                                    <p className="text-sm text-muted-foreground">
-                                        Showing {usersTable.users.length} of{' '}
-                                        {usersTable.pagination.totalItems} users
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() =>
-                                                setTablePage((prev) =>
-                                                    Math.max(1, prev - 1)
-                                                )
-                                            }
-                                            disabled={tablePage === 1}
-                                            className="px-3 py-1 border rounded disabled:opacity-50"
-                                        >
-                                            Previous
-                                        </button>
-                                        <span className="px-3 py-1">
-                                            Page {tablePage} of{' '}
-                                            {usersTable.pagination.totalPages}
-                                        </span>
-                                        <button
-                                            onClick={() =>
-                                                setTablePage((prev) =>
-                                                    Math.min(
-                                                        usersTable.pagination
-                                                            .totalPages,
-                                                        prev + 1
-                                                    )
-                                                )
-                                            }
-                                            disabled={
-                                                tablePage ===
-                                                usersTable.pagination.totalPages
-                                            }
-                                            className="px-3 py-1 border rounded disabled:opacity-50"
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                        {/* Reset */}
+                        {hasFilters && (
+                            <Button variant="ghost" size="sm" onClick={handleReset} className="h-9 gap-1.5 ml-auto md:ml-0">
+                                <RotateCcw className="h-3.5 w-3.5" /> Reset
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="border rounded-md">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[180px]">Timestamp</TableHead>
+                                    <TableHead className="w-[100px]">Level</TableHead>
+                                    <TableHead className="w-[200px]">User</TableHead>
+                                    <TableHead className="w-[150px]">Action</TableHead>
+                                    <TableHead className="w-[120px]">Entity</TableHead>
+                                    <TableHead>Description</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading || isFetching ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                                            <TableCell><Skeleton className="h-8 w-8 rounded-full inline-block mr-2" /><Skeleton className="h-4 w-24 inline-block" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : logs.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="h-24 text-center">
+                                            No logs found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    logs.map((log: any) => (
+                                        <TableRow key={log._id} className="group">
+                                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                                {format(new Date(log.createdAt), 'PP pp')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {getLevelBadge(log.level || 'info')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {log.user ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Avatar className="h-6 w-6">
+                                                            <AvatarImage src={log.user.image} />
+                                                            <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                                                {log.user.firstName?.[0]}{log.user.lastName?.[0]}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium leading-none">{log.user.firstName} {log.user.lastName}</span>
+                                                            <span className="text-[10px] text-muted-foreground">{log.user.email}</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-sm italic">System/Guest</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="font-mono text-xs bg-muted/50 px-2 py-1 rounded">{log.action}</span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="capitalize text-xs font-normal">
+                                                    {log.entityType}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="max-w-[400px]">
+                                                <p className="text-sm truncate group-hover:whitespace-normal group-hover:overflow-visible transition-all">
+                                                    {log.description}
+                                                </p>
+                                                {log.data && (
+                                                    <details className="mt-1">
+                                                        <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-primary list-none flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+                                                            View Meta Data
+                                                        </summary>
+                                                        <pre className="mt-1 p-2 bg-muted/30 rounded text-[10px] overflow-auto max-h-[100px]">
+                                                            {JSON.stringify(log.data, null, 2)}
+                                                        </pre>
+                                                    </details>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between pt-4 border-t">
+                        <div className="text-xs text-muted-foreground">
+                            Showing <strong>{(page - 1) * limit + 1}</strong> to <strong>{Math.min(page * limit, pagination.totalItems)}</strong> of <strong>{pagination.totalItems}</strong> entries
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="h-8 w-8 p-0"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-sm px-2">
+                                Page {page} of {pagination.totalPages || 1}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={page >= pagination.totalPages}
+                                className="h-8 w-8 p-0"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>

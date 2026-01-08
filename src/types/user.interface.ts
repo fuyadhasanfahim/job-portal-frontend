@@ -26,6 +26,7 @@ export interface IUser {
     role:
         | 'super-admin'
         | 'admin'
+        | 'team-leader'
         | 'lead-generator'
         | 'telemarketer'
         | 'digital-marketer'

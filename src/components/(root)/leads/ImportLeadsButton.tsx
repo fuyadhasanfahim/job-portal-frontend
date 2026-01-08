@@ -30,6 +30,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     IconLoader2,
     IconFileSpreadsheet,
@@ -103,7 +104,7 @@ type ImportSuccessResponse = {
 
 const EXPECTED_COLUMNS = {
     required: ['companyName', 'country'],
-    contactRequired: ['contactEmail', 'contactPhone'],
+    contact: ['contactEmail', 'contactPhone'],
     optional: [
         'website',
         'address',
@@ -112,7 +113,9 @@ const EXPECTED_COLUMNS = {
         'contactFirstName',
         'contactLastName',
         'contactDesignation',
-        'additionalContacts',
+        'contact2Email',
+        'contact2Phone',
+        'contact2FirstName',
     ],
 };
 
@@ -130,6 +133,10 @@ export default function ImportLeadsButton() {
     const [importResult, setImportResult] =
         useState<ImportSuccessResponse | null>(null);
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+    
+    // Required field options
+    const [requireEmail, setRequireEmail] = useState(false);
+    const [requirePhone, setRequirePhone] = useState(false);
 
     const [importLeads, { isLoading }] = useImportLeadsMutation();
     const { data: groupsData } = useGetGroupsQuery();
@@ -198,6 +205,9 @@ export default function ImportLeadsButton() {
             if (selectedGroupId && selectedGroupId !== 'none') {
                 formData.append('groupId', selectedGroupId);
             }
+            // Pass required field options
+            formData.append('requireEmail', String(requireEmail));
+            formData.append('requirePhone', String(requirePhone));
 
             const res = await importLeads(formData).unwrap();
 
@@ -239,10 +249,13 @@ export default function ImportLeadsButton() {
         }
     };
 
-    const downloadTemplate = () => {
+    const downloadTemplate = async () => {
+        // Dynamic import xlsx for client-side only
+        const XLSX = await import('xlsx');
+        
         const headers = [
             'companyName',
-            'website',
+            'website', 
             'country',
             'address',
             'notes',
@@ -252,31 +265,54 @@ export default function ImportLeadsButton() {
             'contactDesignation',
             'contactEmail',
             'contactPhone',
+            'contact2FirstName',
+            'contact2Email',
+            'contact2Phone',
         ];
 
         const sampleData = [
-            'Acme Corp',
-            'https://acme.com',
-            'United States',
-            '123 Main St, NY',
-            'Potential client',
-            'new',
-            'John',
-            'Doe',
-            'CEO',
-            'john@acme.com',
-            '+1234567890',
+            [
+                'Acme Corp',
+                'https://acme.com',
+                'United States',
+                '123 Main St, NY',
+                'Potential client',
+                'new',
+                'John',
+                'Doe',
+                'CEO',
+                'john@acme.com',
+                '+1234567890',
+                'Jane',
+                'jane@acme.com',
+                '+1987654321',
+            ],
+            [
+                'Tech Solutions',
+                'https://techsol.io',
+                'United Kingdom',
+                '456 Oxford St, London',
+                'Follow up needed',
+                'new',
+                'Mike',
+                'Smith',
+                'CTO',
+                'mike@techsol.io',
+                '+441234567890',
+                '',
+                '',
+                '',
+            ],
         ];
 
-        const csvContent = [headers.join(','), sampleData.join(',')].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'leads_import_template.csv';
-        link.click();
-        URL.revokeObjectURL(url);
+        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads Template');
+        
+        // Set column widths
+        worksheet['!cols'] = headers.map(() => ({ wch: 18 }));
+        
+        XLSX.writeFile(workbook, 'leads_import_template.xlsx');
     };
 
     const resetAll = () => {
@@ -287,6 +323,8 @@ export default function ImportLeadsButton() {
         setValidationError(null);
         setImportResult(null);
         setSelectedGroupId('');
+        setRequireEmail(false);
+        setRequirePhone(false);
         setOpen(false);
     };
 
@@ -307,90 +345,33 @@ export default function ImportLeadsButton() {
                 </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-xl w-full">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <IconDatabaseImport className="text-primary" />
                         Import Leads
                     </DialogTitle>
                     <DialogDescription>
-                        Upload CSV or Excel file to import leads. Make sure your
-                        file has the required columns.
+                        Import leads from Excel or CSV file. Download the template for the correct format.
                     </DialogDescription>
                 </DialogHeader>
 
-                {/* Expected Format Info */}
-                <Accordion type="single" collapsible className="mb-4">
-                    <AccordionItem value="format">
-                        <AccordionTrigger className="text-sm">
-                            <span className="flex items-center gap-2">
-                                <IconInfoCircle size={16} />
-                                Expected File Format
-                            </span>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <div className="space-y-3 text-sm">
-                                <div>
-                                    <p className="font-medium text-red-600 mb-1">
-                                        Required Columns:
-                                    </p>
-                                    <ul className="list-disc list-inside text-muted-foreground">
-                                        {EXPECTED_COLUMNS.required.map(
-                                            (col) => (
-                                                <li key={col}>
-                                                    <code className="bg-stone-100 px-1 rounded">
-                                                        {col}
-                                                    </code>
-                                                </li>
-                                            )
-                                        )}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <p className="font-medium text-amber-600 mb-1">
-                                        At Least One Required:
-                                    </p>
-                                    <ul className="list-disc list-inside text-muted-foreground">
-                                        {EXPECTED_COLUMNS.contactRequired.map(
-                                            (col) => (
-                                                <li key={col}>
-                                                    <code className="bg-stone-100 px-1 rounded">
-                                                        {col}
-                                                    </code>
-                                                </li>
-                                            )
-                                        )}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <p className="font-medium text-green-600 mb-1">
-                                        Optional Columns:
-                                    </p>
-                                    <ul className="list-disc list-inside text-muted-foreground">
-                                        {EXPECTED_COLUMNS.optional.map(
-                                            (col) => (
-                                                <li key={col}>
-                                                    <code className="bg-stone-100 px-1 rounded">
-                                                        {col}
-                                                    </code>
-                                                </li>
-                                            )
-                                        )}
-                                    </ul>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={downloadTemplate}
-                                    className="mt-2"
-                                >
-                                    <IconDownload size={16} />
-                                    Download Template CSV
-                                </Button>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
+                {/* Quick Start - Download Template */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-2">
+                        <IconInfoCircle size={18} className="text-primary" />
+                        <span className="text-sm font-medium">New to importing?</span>
+                    </div>
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={downloadTemplate}
+                        className="gap-1.5"
+                    >
+                        <IconDownload size={16} />
+                        Download Excel Template
+                    </Button>
+                </div>
 
                 {/* Validation Error Display */}
                 {validationError && (
@@ -403,88 +384,22 @@ export default function ImportLeadsButton() {
                             </AlertDescription>
                         </Alert>
 
-                        {/* Schema Validation Errors */}
-                        {validationError.validationErrors &&
-                            validationError.validationErrors.length > 0 && (
-                                <Alert variant="destructive">
-                                    <IconAlertTriangle className="h-4 w-4" />
-                                    <AlertTitle>
-                                        Missing Required Columns
-                                    </AlertTitle>
-                                    <AlertDescription>
-                                        <ul className="list-disc list-inside mt-2">
-                                            {validationError.validationErrors.map(
-                                                (err, i) => (
-                                                    <li key={i}>
-                                                        {err.message}
-                                                    </li>
-                                                )
-                                            )}
-                                        </ul>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                        {/* Detected vs Expected Columns */}
-                        {validationError.detectedColumns && (
-                            <div className="p-3 rounded-lg border bg-stone-50 text-sm">
-                                <p className="font-medium mb-2">
-                                    Columns found in your file:
-                                </p>
-                                <div className="flex flex-wrap gap-1">
-                                    {validationError.detectedColumns.map(
-                                        (col) => (
-                                            <span
-                                                key={col}
-                                                className="px-2 py-0.5 bg-stone-200 rounded text-xs"
-                                            >
-                                                {col}
-                                            </span>
-                                        )
-                                    )}
-                                </div>
+                        {/* Show errors if any */}
+                        {(validationError.validationErrors?.length ?? 0) > 0 && (
+                            <div className="p-3 rounded-lg border bg-red-50 text-sm">
+                                <p className="font-medium text-red-800 mb-2">Issues found:</p>
+                                <ul className="list-disc list-inside text-red-700 space-y-1">
+                                    {validationError.validationErrors?.slice(0, 5).map((err, i) => (
+                                        <li key={i}>{err.message}</li>
+                                    ))}
+                                </ul>
+                                {(validationError.totalRowErrors ?? 0) > 5 && (
+                                    <p className="text-red-600 mt-2 text-xs">
+                                        +{(validationError.totalRowErrors ?? 0) - 5} more errors...
+                                    </p>
+                                )}
                             </div>
                         )}
-
-                        {/* Row-level Errors */}
-                        {validationError.rowErrors &&
-                            validationError.rowErrors.length > 0 && (
-                                <div className="p-3 rounded-lg border bg-red-50">
-                                    <p className="font-medium text-red-800 mb-2">
-                                        Row Validation Errors (
-                                        {validationError.totalRowErrors} total):
-                                    </p>
-                                    <ScrollArea className="h-32">
-                                        <ul className="text-sm text-red-700 space-y-1">
-                                            {validationError.rowErrors.map(
-                                                (err, i) => (
-                                                    <li key={i}>
-                                                        {err.message}
-                                                    </li>
-                                                )
-                                            )}
-                                        </ul>
-                                    </ScrollArea>
-                                </div>
-                            )}
-
-                        {/* Warnings */}
-                        {validationError.warnings &&
-                            validationError.warnings.length > 0 && (
-                                <Alert>
-                                    <IconAlertTriangle className="h-4 w-4 text-amber-500" />
-                                    <AlertTitle>Warnings</AlertTitle>
-                                    <AlertDescription>
-                                        <ul className="list-disc list-inside mt-1">
-                                            {validationError.warnings.map(
-                                                (w, i) => (
-                                                    <li key={i}>{w}</li>
-                                                )
-                                            )}
-                                        </ul>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
 
                         <Button
                             variant="outline"
@@ -493,7 +408,7 @@ export default function ImportLeadsButton() {
                                 setFiles([]);
                             }}
                         >
-                            Try a different file
+                            Try again
                         </Button>
                     </div>
                 )}
@@ -600,6 +515,36 @@ export default function ImportLeadsButton() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        {/* Required Field Options */}
+                        <div className="mb-4 p-3 rounded-lg border bg-muted/30">
+                            <Label className="text-sm font-medium mb-3 block">Required Fields (Optional)</Label>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="requireEmail"
+                                        checked={requireEmail}
+                                        onCheckedChange={(checked) => setRequireEmail(checked === true)}
+                                    />
+                                    <Label htmlFor="requireEmail" className="text-sm font-normal cursor-pointer">
+                                        Email Required
+                                    </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="requirePhone"
+                                        checked={requirePhone}
+                                        onCheckedChange={(checked) => setRequirePhone(checked === true)}
+                                    />
+                                    <Label htmlFor="requirePhone" className="text-sm font-normal cursor-pointer">
+                                        Phone Required
+                                    </Label>
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                                Rows missing checked fields will be skipped during import.
+                            </p>
                         </div>
 
                         {files.length === 0 ? (

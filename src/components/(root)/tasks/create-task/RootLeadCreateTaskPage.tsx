@@ -24,7 +24,7 @@ import { ChevronDownIcon, ChevronLeft, ChevronRight, Search, Users, ClipboardLis
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
 import { useGetLeadsQuery } from '@/redux/features/lead/leadApi';
-import { useCreateTaskMutation } from '@/redux/features/task/taskApi';
+import { useCreateTaskMutation, useGetTasksQuery } from '@/redux/features/task/taskApi';
 import { useSignedUser } from '@/hooks/useSignedUser';
 import { ILead } from '@/types/lead.interface';
 import { toast } from 'sonner';
@@ -107,6 +107,15 @@ export default function RootLeadCreateTaskPage() {
     const leads = data?.data ?? [];
     const pagination = data?.pagination ?? { totalItems: 0, totalPages: 1 };
     const [createTask, { isLoading: creating }] = useCreateTaskMutation();
+    
+    // Check for incomplete (in-progress) tasks
+    const { data: tasksData } = useGetTasksQuery({
+        page: 1,
+        limit: 10,
+        status: 'in-progress',
+    });
+    const hasIncompleteTasks = (tasksData?.tasks?.length ?? 0) > 0;
+    const incompleteTaskCount = tasksData?.tasks?.length ?? 0;
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) setSelectedLeads(leads.map((lead: ILead) => lead._id));
@@ -188,6 +197,20 @@ export default function RootLeadCreateTaskPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
+                {/* Warning for incomplete tasks */}
+                {hasIncompleteTasks && (
+                    <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800">
+                        <div className="p-1.5 rounded-full bg-yellow-200/50 shrink-0">
+                            <ClipboardList className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-sm">আপনার {incompleteTaskCount}টি incomplete task আছে</p>
+                            <p className="text-xs text-yellow-700 mt-0.5">
+                                নতুন task তৈরি করার আগে পুরাতন task গুলো complete করুন।
+                            </p>
+                        </div>
+                    </div>
+                )}
                 {/* Status Tabs */}
                 <Tabs
                     value={status}
