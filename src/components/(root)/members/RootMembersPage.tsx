@@ -116,7 +116,7 @@ export default function RootMembersPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500">
+                        <div className="p-2.5 rounded-xl bg-linear-to-br from-blue-500 to-indigo-500">
                             <Users className="h-6 w-6 text-white" />
                         </div>
                         Members
@@ -171,12 +171,12 @@ export default function RootMembersPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="border">Member</TableHead>
-                                        <TableHead className="border">Contact</TableHead>
-                                        <TableHead className="border">Role</TableHead>
-                                        <TableHead className="border">Account Status</TableHead>
-                                        <TableHead className="border">Last Login</TableHead>
-                                        <TableHead className="border text-center">Actions</TableHead>
+                                        <TableHead>Member</TableHead>
+                                        <TableHead>Contact</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Account Status</TableHead>
+                                        <TableHead>Last Login</TableHead>
+                                        <TableHead className="text-center">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -187,7 +187,7 @@ export default function RootMembersPage() {
 
                                         return (
                                             <TableRow key={user._id}>
-                                                <TableCell className="border">
+                                                <TableCell>
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-9 w-9 rounded-full bg-gray-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
                                                             {user.firstName[0]}{user.lastName?.[0] || ''}
@@ -202,29 +202,29 @@ export default function RootMembersPage() {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="border">
+                                                <TableCell>
                                                     <div className="space-y-0.5">
                                                         <p className="text-sm">{user.email}</p>
                                                         <p className="text-sm text-muted-foreground">{user.phone}</p>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="border">
+                                                <TableCell>
                                                     <Badge className={roleColors[user.role] || 'bg-gray-100 text-gray-700'}>
                                                         {user.role.replace(/-/g, ' ')}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="border">
+                                                <TableCell>
                                                     <Badge variant="outline" className={`gap-1.5 ${status.className}`}>
                                                         {status.icon}
                                                         {status.label}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="border text-muted-foreground text-sm">
+                                                <TableCell className="text-muted-foreground text-sm">
                                                     {user.lastLogin
                                                         ? formatDistanceToNow(new Date(user.lastLogin), { addSuffix: true })
                                                         : 'Never'}
                                                 </TableCell>
-                                                <TableCell className="border text-center">
+                                                <TableCell className="text-center">
                                                     {(locked || hasFailedAttempts) ? (
                                                         <Button
                                                             size="sm"

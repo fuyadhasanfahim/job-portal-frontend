@@ -187,11 +187,12 @@ export default function RootDashboardPage() {
                                 <Skeleton className="h-[280px] w-full rounded-lg" />
                             ) : monthly.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={280}>
-                                    <BarChart data={monthly} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                    <BarChart data={monthly} margin={{ top: 20, right: 20, left: 0, bottom: 10 }} barCategoryGap="20%">
                                         <defs>
                                             <linearGradient id="leadGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
-                                                <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                                                <stop offset="0%" stopColor="#818cf8" stopOpacity={1} />
+                                                <stop offset="50%" stopColor="#6366f1" stopOpacity={1} />
+                                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.9} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
@@ -199,21 +200,28 @@ export default function RootDashboardPage() {
                                             dataKey="month"
                                             axisLine={false}
                                             tickLine={false}
-                                            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                            tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                                             tickFormatter={(value) => {
                                                 const [, month] = value.split('-');
                                                 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                                 return months[parseInt(month) - 1] || value;
                                             }}
                                         />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                                        <YAxis 
+                                            axisLine={false} 
+                                            tickLine={false} 
+                                            tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                                            width={50}
+                                        />
                                         <Tooltip
-                                            cursor={{ fill: 'hsl(var(--accent))' }}
+                                            cursor={{ fill: 'transparent' }}
                                             contentStyle={{
-                                                backgroundColor: 'hsl(var(--background))',
-                                                border: '1px solid hsl(var(--border))',
+                                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                                backdropFilter: 'blur(8px)',
+                                                border: '1px solid rgba(0, 0, 0, 0.1)',
                                                 borderRadius: '12px',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                                                padding: '12px 16px',
                                             }}
                                             labelFormatter={(value) => {
                                                 const [year, month] = value.split('-');
@@ -224,9 +232,10 @@ export default function RootDashboardPage() {
                                         <Bar
                                             dataKey="count"
                                             fill="url(#leadGradient)"
-                                            radius={[6, 6, 0, 0]}
+                                            radius={[8, 8, 0, 0]}
                                             name="Leads"
-                                            animationDuration={1000}
+                                            animationDuration={800}
+                                            maxBarSize={60}
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -262,22 +271,35 @@ export default function RootDashboardPage() {
                                         <Pie
                                             data={topUsers}
                                             cx="50%"
-                                            cy="50%"
-                                            labelLine={false}
-                                            outerRadius={100}
+                                            cy="45%"
+                                            innerRadius={50}
+                                            outerRadius={90}
+                                            paddingAngle={2}
                                             fill="#8884d8"
                                             dataKey="totalCount"
                                             nameKey="userName"
-                                            label={({ userName, percent }) =>
-                                                `${userName?.split(' ')[0] || 'User'} (${(percent * 100).toFixed(0)}%)`
-                                            }
                                         >
                                             {topUsers.map((_, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip />
-                                        <Legend />
+                                        <Tooltip 
+                                            formatter={(value: number, name: string) => [value, name]}
+                                            contentStyle={{
+                                                backgroundColor: 'hsl(var(--background))',
+                                                border: '1px solid hsl(var(--border))',
+                                                borderRadius: '8px',
+                                            }}
+                                        />
+                                        <Legend 
+                                            layout="horizontal"
+                                            verticalAlign="bottom"
+                                            align="center"
+                                            wrapperStyle={{ paddingTop: '10px' }}
+                                            formatter={(value: string) => (
+                                                <span className="text-xs text-muted-foreground">{value}</span>
+                                            )}
+                                        />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (

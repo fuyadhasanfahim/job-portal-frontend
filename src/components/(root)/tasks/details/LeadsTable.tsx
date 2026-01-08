@@ -370,9 +370,13 @@ export default function LeadsTable({
                                                         <Ellipsis className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-36">
+                                                <DropdownMenuContent align="end" className="w-40">
                                                     <DropdownMenuItem asChild>
-                                                        <Link href={`/leads/edit/${lead._id}`}>
+                                                        <Link 
+                                                            href={`/leads/edit/${lead._id}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
                                                             <IconEdit className="h-4 w-4" />
                                                             Edit Lead
                                                         </Link>

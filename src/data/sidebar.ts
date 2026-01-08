@@ -8,6 +8,7 @@ import {
     IconUserPlus,
     IconUsersGroup,
     IconCalendarEvent,
+    IconChartBar,
 } from '@tabler/icons-react';
 
 export const data = [
@@ -16,6 +17,12 @@ export const data = [
         url: '/dashboard',
         access: ['super-admin', 'admin', 'telemarketer', 'lead-generator'],
         icon: IconLayoutDashboard,
+    },
+    {
+        title: 'Analytics',
+        url: '/analytics',
+        access: ['super-admin', 'admin'],
+        icon: IconChartBar,
     },
     {
         title: 'Leads',
