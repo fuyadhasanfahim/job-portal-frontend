@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,14 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     Popover,
@@ -44,12 +37,9 @@ import {
     useGetLeadStatusDistributionQuery,
     useGetLeadTrendsQuery,
     useGetUserPerformanceQuery,
-    useGetSourceBreakdownQuery,
     useGetCountryDistributionQuery,
 } from '@/redux/features/analytics/analyticsApi';
 import {
-    LineChart,
-    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -67,6 +57,27 @@ import { useSignedUser } from '@/hooks/useSignedUser';
 
 // Chart colors matching dashboard theme
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#f97316', '#22c55e', '#14b8a6'];
+
+// Analytics data types
+interface StatusDistributionItem {
+    name: string;
+    value: number;
+    color?: string;
+}
+
+interface CountryItem {
+    country: string;
+    count: number;
+}
+
+interface UserPerformanceItem {
+    _id: string;
+    name: string;
+    role: string;
+    image?: string;
+    totalLeads: number;
+    interested: number;
+}
 
 export default function RootAnalyticsPage() {
     const { user } = useSignedUser();
@@ -87,15 +98,13 @@ export default function RootAnalyticsPage() {
     const { data: statusData, isLoading: statusLoading } = useGetLeadStatusDistributionQuery(queryParams);
     const { data: trendsData, isLoading: trendsLoading } = useGetLeadTrendsQuery({ ...queryParams, period });
     const { data: userPerformanceData, isLoading: userPerformanceLoading } = useGetUserPerformanceQuery({ ...queryParams, limit: 8 });
-    const { data: sourceData, isLoading: sourceLoading } = useGetSourceBreakdownQuery(queryParams);
     const { data: countryData, isLoading: countryLoading } = useGetCountryDistributionQuery({ ...queryParams, limit: 8 });
 
     const overview = overviewData?.data;
-    const statusDistribution = statusData?.data || [];
+    const statusDistribution: StatusDistributionItem[] = statusData?.data || [];
     const trends = trendsData?.data || [];
-    const userPerformance = userPerformanceData?.data || [];
-    const sources = sourceData?.data || [];
-    const countries = countryData?.data || [];
+    const userPerformance: UserPerformanceItem[] = userPerformanceData?.data || [];
+    const countries: CountryItem[] = countryData?.data || [];
 
     return (
         <div className="space-y-6">
@@ -332,7 +341,7 @@ export default function RootAnalyticsPage() {
                                             `${name?.replace('-', ' ')} (${(percent * 100).toFixed(0)}%)`
                                         }
                                     >
-                                        {statusDistribution.map((entry: any, index: number) => (
+                                        {statusDistribution.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
@@ -367,7 +376,7 @@ export default function RootAnalyticsPage() {
                             <Skeleton className="h-[280px] w-full rounded-lg" />
                         ) : countries.length > 0 ? (
                             <div className="space-y-3">
-                                {countries.map((item: any, index: number) => {
+                                {countries.map((item, index) => {
                                     const maxCount = countries[0]?.count || 1;
                                     const percentage = (item.count / maxCount) * 100;
                                     const colors = [
@@ -432,7 +441,7 @@ export default function RootAnalyticsPage() {
                             </div>
                         ) : userPerformance.length > 0 ? (
                             <div className="space-y-3">
-                                {userPerformance.slice(0, 5).map((user: any) => (
+                                {userPerformance.slice(0, 5).map((user) => (
                                     <div 
                                         key={user._id}
                                         className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors"

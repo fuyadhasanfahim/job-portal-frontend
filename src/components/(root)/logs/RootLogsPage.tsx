@@ -51,6 +51,31 @@ const ENTITY_TYPES = [
 
 const LOG_LEVELS = ['info', 'warning', 'error', 'debug'];
 
+// Types for logs page
+interface UserOption {
+    _id: string;
+    firstName: string;
+    lastName?: string;
+}
+
+interface LogUser {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    image?: string;
+}
+
+interface LogEntry {
+    _id: string;
+    createdAt: string;
+    level?: string;
+    action: string;
+    entityType: string;
+    description: string;
+    data?: Record<string, unknown>;
+    user?: LogUser;
+}
+
 export default function RootLogsPage() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(20);
@@ -87,7 +112,7 @@ export default function RootLogsPage() {
 
     // Fetch users for filter
     const { data: usersData } = useGetAllUsersQuery({ role: 'all', includeAdmins: true });
-    const users = usersData?.users ?? [];
+    const users: UserOption[] = usersData?.users ?? [];
 
     const handleReset = () => {
         setSearch('');
@@ -148,7 +173,7 @@ export default function RootLogsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Users</SelectItem>
-                                {users.map((u: any) => (
+                                {users.map((u) => (
                                     <SelectItem key={u._id} value={u._id}>
                                         {u.firstName} {u.lastName}
                                     </SelectItem>
@@ -245,7 +270,7 @@ export default function RootLogsPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    logs.map((log: any) => (
+                                    (logs as LogEntry[]).map((log) => (
                                         <TableRow key={log._id} className="group">
                                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                                                 {format(new Date(log.createdAt), 'PP pp')}

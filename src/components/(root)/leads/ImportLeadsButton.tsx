@@ -17,12 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
     Select,
     SelectContent,
     SelectItem,
@@ -39,7 +33,6 @@ import {
     IconCircleDot,
     IconDatabaseImport,
     IconFileTypeXls,
-    IconAlertTriangle,
     IconAlertCircle,
     IconDownload,
     IconInfoCircle,
@@ -100,23 +93,6 @@ type ImportSuccessResponse = {
     };
     warnings?: string[];
     uploadId?: string;
-};
-
-const EXPECTED_COLUMNS = {
-    required: ['companyName', 'country'],
-    contact: ['contactEmail', 'contactPhone'],
-    optional: [
-        'website',
-        'address',
-        'notes',
-        'status',
-        'contactFirstName',
-        'contactLastName',
-        'contactDesignation',
-        'contact2Email',
-        'contact2Phone',
-        'contact2FirstName',
-    ],
 };
 
 export default function ImportLeadsButton() {

@@ -28,7 +28,6 @@ import {
     useGetTaskByIdQuery,
     useUpdateTaskWithLeadMutation,
     useForceCompleteTaskMutation,
-    useRemoveLeadFromTaskMutation,
 } from '@/redux/features/task/taskApi';
 import { ITask } from '@/types/task.interface';
 import { ILead, IActivity } from '@/types/lead.interface';
@@ -82,7 +81,6 @@ export default function RootTaskDetailsPage() {
         useUpdateTaskWithLeadMutation();
     const [forceCompleteTask, { isLoading: isForceCompleting }] =
         useForceCompleteTaskMutation();
-    const [removeLeadFromTask] = useRemoveLeadFromTaskMutation();
 
     const isAdmin = user?.role === 'admin' || user?.role === 'super-admin';
     const task: ITask | null = data?.task ?? null;
