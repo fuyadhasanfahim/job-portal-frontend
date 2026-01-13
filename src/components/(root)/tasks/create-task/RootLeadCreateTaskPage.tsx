@@ -20,11 +20,23 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDownIcon, ChevronLeft, ChevronRight, Search, Users, ClipboardList, RotateCcw, CheckSquare } from 'lucide-react';
+import {
+    ChevronDownIcon,
+    ChevronLeft,
+    ChevronRight,
+    Search,
+    Users,
+    ClipboardList,
+    RotateCcw,
+    CheckSquare,
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
-import { useGetLeadsQuery } from '@/redux/features/lead/leadApi';
-import { useCreateTaskMutation, useGetTasksQuery } from '@/redux/features/task/taskApi';
+import { useGetLeadsForTaskQuery } from '@/redux/features/lead/leadApi';
+import {
+    useCreateTaskMutation,
+    useGetTasksQuery,
+} from '@/redux/features/task/taskApi';
 import { useSignedUser } from '@/hooks/useSignedUser';
 import { ILead } from '@/types/lead.interface';
 import { toast } from 'sonner';
@@ -37,12 +49,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 
@@ -60,6 +67,13 @@ const statusTabs = [
     { value: 'invalid-number', label: 'Invalid Number' },
 ];
 
+const contactTypeTabs = [
+    { value: 'all', label: 'All Leads' },
+    { value: 'email-with-phone', label: 'Email + Phone' },
+    { value: 'email-only', label: 'Email Only' },
+    { value: 'phone-only', label: 'Phone Only' },
+];
+
 export default function RootLeadCreateTaskPage() {
     const { user } = useSignedUser();
 
@@ -74,6 +88,9 @@ export default function RootLeadCreateTaskPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [groupFilter, setGroupFilter] = useState('all');
+    const [contactFilter, setContactFilter] = useState<
+        'all' | 'email-only' | 'phone-only' | 'email-with-phone'
+    >('all');
 
     // Debounce search
     useEffect(() => {
@@ -92,22 +109,22 @@ export default function RootLeadCreateTaskPage() {
         data,
         isLoading: leadsLoading,
         isFetching,
-    } = useGetLeadsQuery({
+    } = useGetLeadsForTaskQuery({
         page,
         limit: perPage,
         country: countryFilter,
         sortBy: sort.includes('company') ? 'company.name' : 'country',
         sortOrder: sort.endsWith('Asc') ? 'asc' : 'desc',
         status,
-        date: date ? date.toLocaleDateString('en-CA') : '',
         search: debouncedSearch,
         group: groupFilter,
+        contactFilter,
     });
 
     const leads = data?.data ?? [];
     const pagination = data?.pagination ?? { totalItems: 0, totalPages: 1 };
     const [createTask, { isLoading: creating }] = useCreateTaskMutation();
-    
+
     // Check for incomplete (in-progress) tasks
     const { data: tasksData } = useGetTasksQuery({
         page: 1,
@@ -160,12 +177,19 @@ export default function RootLeadCreateTaskPage() {
         setStatus('all');
         setCountryFilter('all');
         setGroupFilter('all');
+        setContactFilter('all');
         setDate(undefined);
         setSearchTerm('');
         setPage(1);
     };
 
-    const hasActiveFilters = status !== 'all' || countryFilter !== 'all' || groupFilter !== 'all' || date || searchTerm;
+    const hasActiveFilters =
+        status !== 'all' ||
+        countryFilter !== 'all' ||
+        groupFilter !== 'all' ||
+        contactFilter !== 'all' ||
+        date ||
+        searchTerm;
 
     return (
         <Card>
@@ -177,10 +201,13 @@ export default function RootLeadCreateTaskPage() {
                         </div>
                         <CardTitle>Create Lead Task</CardTitle>
                     </div>
-                    
+
                     {selectedLeads.length > 0 && (
                         <div className="flex items-center gap-3">
-                            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
+                            <Badge
+                                variant="secondary"
+                                className="gap-1.5 px-3 py-1.5"
+                            >
                                 <CheckSquare className="h-3.5 w-3.5" />
                                 {selectedLeads.length} leads selected
                             </Badge>
@@ -204,13 +231,45 @@ export default function RootLeadCreateTaskPage() {
                             <ClipboardList className="h-4 w-4" />
                         </div>
                         <div>
-                            <p className="font-medium text-sm">আপনার {incompleteTaskCount}টি incomplete task আছে</p>
+                            <p className="font-medium text-sm">
+                                আপনার {incompleteTaskCount}টি incomplete task
+                                আছে
+                            </p>
                             <p className="text-xs text-yellow-700 mt-0.5">
-                                নতুন task তৈরি করার আগে পুরাতন task গুলো complete করুন।
+                                নতুন task তৈরি করার আগে পুরাতন task গুলো
+                                complete করুন।
                             </p>
                         </div>
                     </div>
                 )}
+                {/* Contact Type Tabs */}
+                <Tabs
+                    value={contactFilter}
+                    onValueChange={(val) => {
+                        setContactFilter(
+                            val as
+                                | 'all'
+                                | 'email-only'
+                                | 'phone-only'
+                                | 'email-with-phone'
+                        );
+                        setPage(1);
+                    }}
+                    className="w-full"
+                >
+                    <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-primary/10 w-full justify-start">
+                        {contactTypeTabs.map((tab) => (
+                            <TabsTrigger
+                                key={tab.value}
+                                value={tab.value}
+                                className="text-xs"
+                            >
+                                {tab.label}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+
                 {/* Status Tabs */}
                 <Tabs
                     value={status}
@@ -247,14 +306,21 @@ export default function RootLeadCreateTaskPage() {
                 {/* Filters Row */}
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Country */}
-                    <Select value={countryFilter} onValueChange={setCountryFilter}>
+                    <Select
+                        value={countryFilter}
+                        onValueChange={setCountryFilter}
+                    >
                         <SelectTrigger className="w-[140px]">
                             <SelectValue placeholder="Country" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Countries</SelectItem>
                             {countries?.map((c) => (
-                                <SelectItem key={c.name} value={c.name} className="capitalize">
+                                <SelectItem
+                                    key={c.name}
+                                    value={c.name}
+                                    className="capitalize"
+                                >
                                     {c.name}
                                 </SelectItem>
                             ))}
@@ -268,22 +334,42 @@ export default function RootLeadCreateTaskPage() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Groups</SelectItem>
-                            {groups.map((g: { _id: string; name: string; color?: string }) => (
-                                <SelectItem key={g._id} value={g._id}>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color || '#6366f1' }} />
-                                        {g.name}
-                                    </div>
-                                </SelectItem>
-                            ))}
+                            {groups.map(
+                                (g: {
+                                    _id: string;
+                                    name: string;
+                                    color?: string;
+                                }) => (
+                                    <SelectItem key={g._id} value={g._id}>
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-2 h-2 rounded-full"
+                                                style={{
+                                                    backgroundColor:
+                                                        g.color || '#6366f1',
+                                                }}
+                                            />
+                                            {g.name}
+                                        </div>
+                                    </SelectItem>
+                                )
+                            )}
                         </SelectContent>
                     </Select>
 
                     {/* Date */}
                     <Popover open={open} onOpenChange={setOpen}>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-[140px] justify-between font-normal", date && "text-foreground")}>
-                                {date ? date.toLocaleDateString() : 'Select date'}
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    'w-[140px] justify-between font-normal',
+                                    date && 'text-foreground'
+                                )}
+                            >
+                                {date
+                                    ? date.toLocaleDateString()
+                                    : 'Select date'}
                                 <ChevronDownIcon className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
@@ -292,39 +378,63 @@ export default function RootLeadCreateTaskPage() {
                                 mode="single"
                                 selected={date}
                                 captionLayout="dropdown"
-                                onSelect={(d) => { setDate(d); setOpen(false); }}
+                                onSelect={(d) => {
+                                    setDate(d);
+                                    setOpen(false);
+                                }}
                             />
                         </PopoverContent>
                     </Popover>
 
                     {/* Sort */}
-                    <Select value={sort} onValueChange={(val) => setSort(val as SortOption)}>
+                    <Select
+                        value={sort}
+                        onValueChange={(val) => setSort(val as SortOption)}
+                    >
                         <SelectTrigger className="w-[130px]">
                             <SelectValue placeholder="Sort" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="companyAsc">Company A-Z</SelectItem>
-                            <SelectItem value="companyDesc">Company Z-A</SelectItem>
-                            <SelectItem value="countryAsc">Country A-Z</SelectItem>
-                            <SelectItem value="countryDesc">Country Z-A</SelectItem>
+                            <SelectItem value="companyAsc">
+                                Company A-Z
+                            </SelectItem>
+                            <SelectItem value="companyDesc">
+                                Company Z-A
+                            </SelectItem>
+                            <SelectItem value="countryAsc">
+                                Country A-Z
+                            </SelectItem>
+                            <SelectItem value="countryDesc">
+                                Country Z-A
+                            </SelectItem>
                         </SelectContent>
                     </Select>
 
                     {/* Per Page */}
-                    <Select value={String(perPage)} onValueChange={(val) => setPerPage(Number(val))}>
-                        <SelectTrigger className="w-[100px]">
+                    <Select
+                        value={String(perPage)}
+                        onValueChange={(val) => setPerPage(Number(val))}
+                    >
+                        <SelectTrigger className="w-[120px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             {[10, 20, 50, 100].map((n) => (
-                                <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+                                <SelectItem key={n} value={String(n)}>
+                                    {n} / page
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
 
                     {/* Reset */}
                     {hasActiveFilters && (
-                        <Button variant="ghost" size="sm" onClick={resetFilters} className="gap-1.5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={resetFilters}
+                            className="gap-1.5"
+                        >
                             <RotateCcw className="h-4 w-4" />
                             Reset
                         </Button>
@@ -338,17 +448,36 @@ export default function RootLeadCreateTaskPage() {
                             <TableRow className="hover:bg-transparent">
                                 <TableHead className="w-10">
                                     <Checkbox
-                                        checked={selectedLeads.length === leads.length && leads.length > 0}
-                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                        checked={
+                                            selectedLeads.length ===
+                                                leads.length && leads.length > 0
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            handleSelectAll(!!checked)
+                                        }
                                     />
                                 </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[150px]">Company</TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[140px]">Website</TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[130px]">Contact</TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[180px]">Email</TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[120px]">Phone</TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[100px]">Country</TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[100px]">Status</TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[150px]">
+                                    Company
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[140px]">
+                                    Website
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[130px]">
+                                    Contact
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[180px]">
+                                    Email
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[120px]">
+                                    Phone
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[100px]">
+                                    Country
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold min-w-[100px]">
+                                    Status
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
 
@@ -356,27 +485,41 @@ export default function RootLeadCreateTaskPage() {
                             {leadsLoading || isFetching ? (
                                 Array.from({ length: 8 }).map((_, i) => (
                                     <TableRow key={i} className="animate-pulse">
-                                        {Array.from({ length: 8 }).map((__, j) => (
-                                            <TableCell key={j} className="py-3">
-                                                <Skeleton className="h-4 w-full max-w-[100px] rounded-full" />
-                                            </TableCell>
-                                        ))}
+                                        {Array.from({ length: 8 }).map(
+                                            (__, j) => (
+                                                <TableCell
+                                                    key={j}
+                                                    className="py-3"
+                                                >
+                                                    <Skeleton className="h-4 w-full max-w-[100px] rounded-full" />
+                                                </TableCell>
+                                            )
+                                        )}
                                     </TableRow>
                                 ))
                             ) : leads.length ? (
                                 leads.map((lead: ILead) => (
-                                    <TableRow 
+                                    <TableRow
                                         key={lead._id}
                                         className={cn(
-                                            "hover:bg-muted/50 transition-colors cursor-pointer",
-                                            selectedLeads.includes(lead._id) && "bg-primary/5"
+                                            'hover:bg-muted/50 transition-colors cursor-pointer',
+                                            selectedLeads.includes(lead._id) &&
+                                                'bg-primary/5'
                                         )}
-                                        onClick={() => handleToggleLead(lead._id)}
+                                        onClick={() =>
+                                            handleToggleLead(lead._id)
+                                        }
                                     >
-                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <TableCell
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             <Checkbox
-                                                checked={selectedLeads.includes(lead._id)}
-                                                onCheckedChange={() => handleToggleLead(lead._id)}
+                                                checked={selectedLeads.includes(
+                                                    lead._id
+                                                )}
+                                                onCheckedChange={() =>
+                                                    handleToggleLead(lead._id)
+                                                }
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium text-sm truncate max-w-[150px]">
@@ -385,35 +528,73 @@ export default function RootLeadCreateTaskPage() {
                                         <TableCell className="text-sm truncate max-w-[140px]">
                                             {lead.company.website ? (
                                                 <Link
-                                                    href={lead.company.website.startsWith('http') ? lead.company.website : `https://${lead.company.website}`}
+                                                    href={
+                                                        lead.company.website.startsWith(
+                                                            'http'
+                                                        )
+                                                            ? lead.company
+                                                                  .website
+                                                            : `https://${lead.company.website}`
+                                                    }
                                                     target="_blank"
                                                     className="text-blue-600 hover:underline"
-                                                    onClick={(e) => e.stopPropagation()}
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
                                                 >
                                                     {lead.company.website}
                                                 </Link>
-                                            ) : <span className="text-muted-foreground">—</span>}
+                                            ) : (
+                                                <span className="text-muted-foreground">
+                                                    —
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-sm truncate max-w-[130px] capitalize">
-                                            {lead.contactPersons[0]?.firstName} {lead.contactPersons[0]?.lastName}
+                                            {lead.contactPersons[0]?.firstName}{' '}
+                                            {lead.contactPersons[0]?.lastName}
                                         </TableCell>
                                         <TableCell className="text-sm truncate max-w-[180px]">
-                                            {lead.contactPersons[0]?.emails?.[0] || <span className="text-muted-foreground">—</span>}
+                                            {lead.contactPersons[0]
+                                                ?.emails?.[0] || (
+                                                <span className="text-muted-foreground">
+                                                    —
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-sm truncate max-w-[120px]">
-                                            {lead.contactPersons[0]?.phones?.[0] || <span className="text-muted-foreground">—</span>}
+                                            {lead.contactPersons[0]
+                                                ?.phones?.[0] || (
+                                                <span className="text-muted-foreground">
+                                                    —
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-sm truncate max-w-[100px]">
-                                            {lead.country || <span className="text-muted-foreground">—</span>}
+                                            {lead.country || (
+                                                <span className="text-muted-foreground">
+                                                    —
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className={cn(
-                                                "capitalize text-xs",
-                                                lead.status === 'new' && "bg-blue-50 text-blue-700 border-blue-200",
-                                                lead.status === 'interested' && "bg-green-50 text-green-700 border-green-200",
-                                                lead.status === 'not-interested' && "bg-red-50 text-red-700 border-red-200",
-                                                lead.status === 'call-back' && "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                            )}>
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    'capitalize text-xs',
+                                                    lead.status === 'new' &&
+                                                        'bg-blue-50 text-blue-700 border-blue-200',
+                                                    lead.status ===
+                                                        'interested' &&
+                                                        'bg-green-50 text-green-700 border-green-200',
+                                                    lead.status ===
+                                                        'not-interested' &&
+                                                        'bg-red-50 text-red-700 border-red-200',
+                                                    lead.status ===
+                                                        'call-back' &&
+                                                        'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                )}
+                                            >
                                                 {lead.status.replace('-', ' ')}
                                             </Badge>
                                         </TableCell>
@@ -421,12 +602,21 @@ export default function RootLeadCreateTaskPage() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
+                                    <TableCell
+                                        colSpan={8}
+                                        className="text-center py-16 text-muted-foreground"
+                                    >
                                         <div className="flex flex-col items-center gap-2">
                                             <Users className="h-8 w-8 text-muted-foreground/50" />
                                             <p>No leads found</p>
                                             {hasActiveFilters && (
-                                                <Button variant="link" size="sm" onClick={resetFilters}>Clear filters</Button>
+                                                <Button
+                                                    variant="link"
+                                                    size="sm"
+                                                    onClick={resetFilters}
+                                                >
+                                                    Clear filters
+                                                </Button>
                                             )}
                                         </div>
                                     </TableCell>
@@ -441,21 +631,54 @@ export default function RootLeadCreateTaskPage() {
                     <div className="text-sm text-muted-foreground">
                         {pagination.totalItems > 0 ? (
                             <>
-                                Showing <span className="font-medium text-foreground">{(page - 1) * perPage + 1}</span> to{' '}
-                                <span className="font-medium text-foreground">{Math.min(page * perPage, pagination.totalItems)}</span> of{' '}
-                                <span className="font-medium text-foreground">{pagination.totalItems}</span> leads
+                                Showing{' '}
+                                <span className="font-medium text-foreground">
+                                    {(page - 1) * perPage + 1}
+                                </span>{' '}
+                                to{' '}
+                                <span className="font-medium text-foreground">
+                                    {Math.min(
+                                        page * perPage,
+                                        pagination.totalItems
+                                    )}
+                                </span>{' '}
+                                of{' '}
+                                <span className="font-medium text-foreground">
+                                    {pagination.totalItems}
+                                </span>{' '}
+                                leads
                             </>
-                        ) : 'No leads to display'}
+                        ) : (
+                            'No leads to display'
+                        )}
                     </div>
 
                     <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} className="gap-1">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page === 1}
+                            onClick={() => setPage((p) => p - 1)}
+                            className="gap-1"
+                        >
                             <ChevronLeft className="h-4 w-4" /> Previous
                         </Button>
                         <span className="text-sm text-muted-foreground mx-2">
-                            Page <span className="font-medium">{page}</span> of <span className="font-medium">{pagination.totalPages || 1}</span>
+                            Page <span className="font-medium">{page}</span> of{' '}
+                            <span className="font-medium">
+                                {pagination.totalPages || 1}
+                            </span>
                         </span>
-                        <Button variant="outline" size="sm" disabled={page === pagination.totalPages || pagination.totalPages === 0} onClick={() => setPage(p => p + 1)} className="gap-1">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                                page === pagination.totalPages ||
+                                pagination.totalPages === 0
+                            }
+                            onClick={() => setPage((p) => p + 1)}
+                            className="gap-1"
+                        >
                             Next <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
@@ -468,14 +691,32 @@ export default function RootLeadCreateTaskPage() {
                     <div className="flex items-center gap-4 bg-primary text-primary-foreground px-6 py-3 rounded-full shadow-lg">
                         <div className="flex items-center gap-2">
                             <CheckSquare className="h-5 w-5" />
-                            <span className="font-medium">{selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selected</span>
+                            <span className="font-medium">
+                                {selectedLeads.length} lead
+                                {selectedLeads.length > 1 ? 's' : ''} selected
+                            </span>
                         </div>
                         <div className="w-px h-6 bg-primary-foreground/30" />
-                        <Button onClick={handleCreateTask} disabled={creating || !user?._id} size="sm" variant="secondary" className="gap-2">
-                            {creating ? <Spinner className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+                        <Button
+                            onClick={handleCreateTask}
+                            disabled={creating || !user?._id}
+                            size="sm"
+                            variant="secondary"
+                            className="gap-2"
+                        >
+                            {creating ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                <ClipboardList className="h-4 w-4" />
+                            )}
                             Create Task
                         </Button>
-                        <Button onClick={() => setSelectedLeads([])} size="sm" variant="ghost" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10">
+                        <Button
+                            onClick={() => setSelectedLeads([])}
+                            size="sm"
+                            variant="ghost"
+                            className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                        >
                             Cancel
                         </Button>
                     </div>

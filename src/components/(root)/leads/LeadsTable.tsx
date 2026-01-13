@@ -50,9 +50,14 @@ import {
     RotateCcw,
     Mail,
     Phone,
-    ClipboardList,
 } from 'lucide-react';
-import { useGetLeadsQuery, useDeleteLeadMutation, useBulkAssignLeadsMutation, useLazyGetAllMatchingLeadIdsQuery, useBulkChangeGroupMutation } from '@/redux/features/lead/leadApi';
+import {
+    useGetLeadsQuery,
+    useDeleteLeadMutation,
+    useBulkAssignLeadsMutation,
+    useLazyGetAllMatchingLeadIdsQuery,
+    useBulkChangeGroupMutation,
+} from '@/redux/features/lead/leadApi';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import { useGetAllUsersQuery } from '@/redux/features/user/userApi';
 import type { IGroup } from '@/types/group.interface';
@@ -112,20 +117,52 @@ export default function LeadsTable() {
     };
 
     const [search, setSearch] = React.useState(getParamValue('search', ''));
-    const [countryFilter, setCountryFilter] = React.useState(getParamValue('country', 'all'));
-    const [sort, setSort] = React.useState<SortOption>(getParamValue('sort', 'dateDesc') as SortOption);
-    const [page, setPage] = React.useState(parseInt(getParamValue('page', '1')));
-    const [perPage, setPerPage] = React.useState(parseInt(getParamValue('perPage', '20')));
+    const [countryFilter, setCountryFilter] = React.useState(
+        getParamValue('country', 'all')
+    );
+    const [sort, setSort] = React.useState<SortOption>(
+        getParamValue('sort', 'dateDesc') as SortOption
+    );
+    const [page, setPage] = React.useState(
+        parseInt(getParamValue('page', '1'))
+    );
+    const [perPage, setPerPage] = React.useState(
+        parseInt(getParamValue('perPage', '20'))
+    );
     const [status, setStatus] = React.useState(getParamValue('status', 'all'));
-    const [selectedRole, setSelectedRole] = React.useState(getParamValue('role', 'all-role'));
-    const [selectedUserId, setSelectedUserId] = React.useState(getParamValue('userId', 'all-user'));
+    const [selectedRole, setSelectedRole] = React.useState(
+        getParamValue('role', 'all-role')
+    );
+    const [selectedUserId, setSelectedUserId] = React.useState(
+        getParamValue('userId', 'all-user')
+    );
     const [date, setDate] = React.useState<Date | undefined>(
-        searchParams.get('date') ? new Date(searchParams.get('date')!) : undefined
+        searchParams.get('date')
+            ? new Date(searchParams.get('date')!)
+            : undefined
     );
     const [open, setOpen] = React.useState(false);
-    const [groupFilter, setGroupFilter] = React.useState(getParamValue('group', 'all'));
-    const [sourceFilter, setSourceFilter] = React.useState(getParamValue('source', 'all'));
-    const [contactFilter, setContactFilter] = React.useState<'all' | 'email-only' | 'phone-only' | 'email-with-phone'>(getParamValue('contactFilter', 'all') as 'all' | 'email-only' | 'phone-only' | 'email-with-phone');
+    const [groupFilter, setGroupFilter] = React.useState(
+        getParamValue('group', 'all')
+    );
+    const [sourceFilter, setSourceFilter] = React.useState(
+        getParamValue('source', 'all')
+    );
+    const [contactFilter, setContactFilter] = React.useState<
+        'all' | 'email-only' | 'phone-only' | 'email-with-phone'
+    >(
+        getParamValue('contactFilter', 'all') as
+            | 'all'
+            | 'email-only'
+            | 'phone-only'
+            | 'email-with-phone'
+    );
+    const [dueDate, setDueDate] = React.useState<Date | undefined>(
+        searchParams.get('dueDate')
+            ? new Date(searchParams.get('dueDate')!)
+            : undefined
+    );
+    const [dueDateOpen, setDueDateOpen] = React.useState(false);
     const [deleteDialog, setDeleteDialog] = React.useState<{
         open: boolean;
         id: string;
@@ -133,17 +170,17 @@ export default function LeadsTable() {
     }>({ open: false, id: '', name: '' });
 
     // Bulk assignment states
-    const [selectedLeads, setSelectedLeads] = React.useState<Set<string>>(new Set());
+    const [selectedLeads, setSelectedLeads] = React.useState<Set<string>>(
+        new Set()
+    );
     const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
     const [assignToUserId, setAssignToUserId] = React.useState<string>('');
 
     // Bulk group change states
-    const [groupChangeDialogOpen, setGroupChangeDialogOpen] = React.useState(false);
+    const [groupChangeDialogOpen, setGroupChangeDialogOpen] =
+        React.useState(false);
     const [changeToGroupId, setChangeToGroupId] = React.useState<string>('');
-    
-    // Bulk create task state
-    const [taskUserId, setTaskUserId] = React.useState<string>('');
-    
+
     // Selection mode toggle
     const [isSelectionMode, setIsSelectionMode] = React.useState(false);
 
@@ -162,9 +199,12 @@ export default function LeadsTable() {
 
     const { data: countries } = useGetCountriesQuery({});
     const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
-    const [bulkAssignLeads, { isLoading: isAssigning }] = useBulkAssignLeadsMutation();
-    const [bulkChangeGroup, { isLoading: isChangingGroup }] = useBulkChangeGroupMutation();
-    const [getAllMatchingLeadIds, { isFetching: isLoadingAllIds }] = useLazyGetAllMatchingLeadIdsQuery();
+    const [bulkAssignLeads, { isLoading: isAssigning }] =
+        useBulkAssignLeadsMutation();
+    const [bulkChangeGroup, { isLoading: isChangingGroup }] =
+        useBulkChangeGroupMutation();
+    const [getAllMatchingLeadIds, { isFetching: isLoadingAllIds }] =
+        useLazyGetAllMatchingLeadIdsQuery();
     const { data: groupsResponse } = useGetGroupsQuery();
     const groups: IGroup[] = groupsResponse?.data || [];
     const { data: usersData } = useGetAllUsersQuery({ includeAdmins: true });
@@ -185,12 +225,30 @@ export default function LeadsTable() {
         if (groupFilter !== 'all') params.set('group', groupFilter);
         if (sourceFilter !== 'all') params.set('source', sourceFilter);
         if (contactFilter !== 'all') params.set('contactFilter', contactFilter);
+        if (dueDate) params.set('dueDate', dueDate.toISOString().split('T')[0]);
 
         const queryString = params.toString();
-        const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+        const newUrl = queryString
+            ? `?${queryString}`
+            : window.location.pathname;
 
         router.replace(newUrl, { scroll: false });
-    }, [search, countryFilter, sort, page, perPage, status, selectedRole, selectedUserId, date, groupFilter, sourceFilter, contactFilter, router]);
+    }, [
+        search,
+        countryFilter,
+        sort,
+        page,
+        perPage,
+        status,
+        selectedRole,
+        selectedUserId,
+        date,
+        groupFilter,
+        sourceFilter,
+        contactFilter,
+        dueDate,
+        router,
+    ]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -213,14 +271,24 @@ export default function LeadsTable() {
         setGroupFilter('all');
         setSourceFilter('all');
         setContactFilter('all');
+        setDueDate(undefined);
         setSelectedLeads(new Set());
         router.replace(window.location.pathname, { scroll: false });
     };
 
     // Check if any filter is active
-    const hasActiveFilters = search || countryFilter !== 'all' || sort !== 'dateDesc' ||
-        status !== 'all' || selectedRole !== 'all-role' || selectedUserId !== 'all-user' ||
-        date || groupFilter !== 'all' || sourceFilter !== 'all' || contactFilter !== 'all';
+    const hasActiveFilters =
+        search ||
+        countryFilter !== 'all' ||
+        sort !== 'dateDesc' ||
+        status !== 'all' ||
+        selectedRole !== 'all-role' ||
+        selectedUserId !== 'all-user' ||
+        date ||
+        groupFilter !== 'all' ||
+        sourceFilter !== 'all' ||
+        contactFilter !== 'all' ||
+        dueDate;
 
     const getSortParams = () => {
         switch (sort) {
@@ -259,11 +327,11 @@ export default function LeadsTable() {
         group: groupFilter !== 'all' ? groupFilter : undefined,
         source: sourceFilter !== 'all' ? sourceFilter : undefined,
         contactFilter: contactFilter !== 'all' ? contactFilter : undefined,
+        dueDate: dueDate ? dueDate.toLocaleDateString('en-CA') : '',
     });
 
     const leads = data?.data ?? [];
     const pagination = data?.pagination ?? { totalItems: 0, totalPages: 1 };
-
 
     // Table skeleton component
     const TableSkeleton = () => (
@@ -275,20 +343,36 @@ export default function LeadsTable() {
                             <Skeleton className="h-4 w-4 rounded" />
                         </TableCell>
                     )}
-                    <TableCell className="py-3"><Skeleton className="h-4 w-28 rounded-full" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-32 rounded-full" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-24 rounded-full" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-36 rounded-full" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-20 rounded-full" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-16 rounded-full" /></TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-28 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-32 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-24 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-36 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-16 rounded-full" />
+                    </TableCell>
                     <TableCell className="py-3">
                         <div className="flex items-center gap-1.5">
                             <Skeleton className="h-3 w-3 rounded-full" />
                             <Skeleton className="h-4 w-16 rounded-full" />
                         </div>
                     </TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-32 rounded-full" /></TableCell>
-                    <TableCell className="py-3 text-center"><Skeleton className="h-6 w-6 rounded mx-auto" /></TableCell>
+                    <TableCell className="py-3">
+                        <Skeleton className="h-4 w-32 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                        <Skeleton className="h-6 w-6 rounded mx-auto" />
+                    </TableCell>
                 </TableRow>
             ))}
         </>
@@ -302,24 +386,42 @@ export default function LeadsTable() {
                     <Tabs
                         value={contactFilter}
                         onValueChange={(val) => {
-                            setContactFilter(val as 'all' | 'email-only' | 'phone-only' | 'email-with-phone');
+                            setContactFilter(
+                                val as
+                                    | 'all'
+                                    | 'email-only'
+                                    | 'phone-only'
+                                    | 'email-with-phone'
+                            );
                             setPage(1);
                         }}
                     >
                         <TabsList className="h-9">
-                            <TabsTrigger value="all" className="text-xs px-4 gap-1.5">
+                            <TabsTrigger
+                                value="all"
+                                className="text-xs px-4 gap-1.5"
+                            >
                                 📋 All Leads
                             </TabsTrigger>
-                            <TabsTrigger value="email-with-phone" className="text-xs px-4 gap-1.5">
+                            <TabsTrigger
+                                value="email-with-phone"
+                                className="text-xs px-4 gap-1.5"
+                            >
                                 <Mail className="h-3.5 w-3.5" />
                                 <Phone className="h-3.5 w-3.5" />
                                 Email + Phone
                             </TabsTrigger>
-                            <TabsTrigger value="email-only" className="text-xs px-4 gap-1.5">
+                            <TabsTrigger
+                                value="email-only"
+                                className="text-xs px-4 gap-1.5"
+                            >
                                 <Mail className="h-3.5 w-3.5" />
                                 Email Only
                             </TabsTrigger>
-                            <TabsTrigger value="phone-only" className="text-xs px-4 gap-1.5">
+                            <TabsTrigger
+                                value="phone-only"
+                                className="text-xs px-4 gap-1.5"
+                            >
                                 <Phone className="h-3.5 w-3.5" />
                                 Phone Only
                             </TabsTrigger>
@@ -377,9 +479,17 @@ export default function LeadsTable() {
                                         <SelectValue placeholder="Country" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Countries</SelectItem>
+                                        <SelectItem value="all">
+                                            All Countries
+                                        </SelectItem>
                                         {countries?.map((c, i) => (
-                                            <SelectItem key={i} value={c.name} className="capitalize">{c.name}</SelectItem>
+                                            <SelectItem
+                                                key={i}
+                                                value={c.name}
+                                                className="capitalize"
+                                            >
+                                                {c.name}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -396,13 +506,22 @@ export default function LeadsTable() {
                                         <SelectValue placeholder="Group" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Groups</SelectItem>
+                                        <SelectItem value="all">
+                                            All Groups
+                                        </SelectItem>
                                         {groups.map((group) => (
-                                            <SelectItem key={group._id} value={group._id}>
+                                            <SelectItem
+                                                key={group._id}
+                                                value={group._id}
+                                            >
                                                 <div className="flex items-center gap-2">
                                                     <div
                                                         className="w-2 h-2 rounded-full"
-                                                        style={{ backgroundColor: group.color || '#6366f1' }}
+                                                        style={{
+                                                            backgroundColor:
+                                                                group.color ||
+                                                                '#6366f1',
+                                                        }}
                                                     />
                                                     {group.name}
                                                 </div>
@@ -413,12 +532,20 @@ export default function LeadsTable() {
 
                                 <Popover open={open} onOpenChange={setOpen}>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="h-9 text-sm w-auto justify-between font-normal">
-                                            {date ? date.toLocaleDateString() : 'Date'}
+                                        <Button
+                                            variant="outline"
+                                            className="h-9 text-sm w-auto justify-between font-normal"
+                                        >
+                                            {date
+                                                ? date.toLocaleDateString()
+                                                : 'Date'}
                                             <ChevronDownIcon className="h-4 w-4 ml-1" />
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                                    <PopoverContent
+                                        className="w-auto overflow-hidden p-0"
+                                        align="start"
+                                    >
                                         <Calendar
                                             mode="single"
                                             selected={date}
@@ -431,18 +558,68 @@ export default function LeadsTable() {
                                     </PopoverContent>
                                 </Popover>
 
+                                {/* Due Date Filter */}
+                                <Popover
+                                    open={dueDateOpen}
+                                    onOpenChange={setDueDateOpen}
+                                >
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="h-9 text-sm w-auto justify-between font-normal"
+                                        >
+                                            {dueDate
+                                                ? `Due: ${dueDate.toLocaleDateString()}`
+                                                : 'Due Date'}
+                                            <ChevronDownIcon className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                        className="w-auto overflow-hidden p-0"
+                                        align="start"
+                                    >
+                                        <Calendar
+                                            mode="single"
+                                            selected={dueDate}
+                                            captionLayout="dropdown"
+                                            onSelect={(date) => {
+                                                setDueDate(date);
+                                                setDueDateOpen(false);
+                                                setPage(1);
+                                            }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+
                                 {/* Sort */}
-                                <Select value={sort} onValueChange={(val) => setSort(val as SortOption)}>
+                                <Select
+                                    value={sort}
+                                    onValueChange={(val) =>
+                                        setSort(val as SortOption)
+                                    }
+                                >
                                     <SelectTrigger className="w-[120px] h-9 text-sm">
                                         <SelectValue placeholder="Sort by" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="companyAsc">Company A-Z</SelectItem>
-                                        <SelectItem value="companyDesc">Company Z-A</SelectItem>
-                                        <SelectItem value="countryAsc">Country A-Z</SelectItem>
-                                        <SelectItem value="countryDesc">Country Z-A</SelectItem>
-                                        <SelectItem value="dateAsc">Oldest first</SelectItem>
-                                        <SelectItem value="dateDesc">Newest first</SelectItem>
+                                        <SelectItem value="companyAsc">
+                                            Company A-Z
+                                        </SelectItem>
+                                        <SelectItem value="companyDesc">
+                                            Company Z-A
+                                        </SelectItem>
+                                        <SelectItem value="countryAsc">
+                                            Country A-Z
+                                        </SelectItem>
+                                        <SelectItem value="countryDesc">
+                                            Country Z-A
+                                        </SelectItem>
+                                        <SelectItem value="dateAsc">
+                                            Oldest first
+                                        </SelectItem>
+                                        <SelectItem value="dateDesc">
+                                            Newest first
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
 
@@ -458,10 +635,18 @@ export default function LeadsTable() {
                                         <SelectValue placeholder="Source" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Sources</SelectItem>
-                                        <SelectItem value="imported">📥 Imported</SelectItem>
-                                        <SelectItem value="manual">✏️ Manual</SelectItem>
-                                        <SelectItem value="website">🌐 Website</SelectItem>
+                                        <SelectItem value="all">
+                                            All Sources
+                                        </SelectItem>
+                                        <SelectItem value="imported">
+                                            📥 Imported
+                                        </SelectItem>
+                                        <SelectItem value="manual">
+                                            ✏️ Manual
+                                        </SelectItem>
+                                        <SelectItem value="website">
+                                            🌐 Website
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
 
@@ -485,7 +670,12 @@ export default function LeadsTable() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {[20, 50, 100].map((n) => (
-                                            <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+                                            <SelectItem
+                                                key={n}
+                                                value={String(n)}
+                                            >
+                                                {n} / page
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -509,12 +699,18 @@ export default function LeadsTable() {
                         {pagination.totalItems > 0 && (
                             <div className="mt-4 flex items-center gap-3 p-2.5 bg-muted/40 rounded-lg text-sm">
                                 <span className="text-muted-foreground">
-                                    Total: <strong className="text-foreground">{pagination.totalItems}</strong> leads
+                                    Total:{' '}
+                                    <strong className="text-foreground">
+                                        {pagination.totalItems}
+                                    </strong>{' '}
+                                    leads
                                 </span>
-                                
+
                                 {/* Select Mode Toggle Button */}
                                 <Button
-                                    variant={isSelectionMode ? "default" : "outline"}
+                                    variant={
+                                        isSelectionMode ? 'default' : 'outline'
+                                    }
                                     size="sm"
                                     onClick={() => {
                                         setIsSelectionMode(!isSelectionMode);
@@ -527,7 +723,7 @@ export default function LeadsTable() {
                                     <Check className="w-3.5 h-3.5" />
                                     {isSelectionMode ? 'Exit Select' : 'Select'}
                                 </Button>
-                                
+
                                 {isSelectionMode && (
                                     <>
                                         <Button
@@ -536,31 +732,62 @@ export default function LeadsTable() {
                                             disabled={isLoadingAllIds}
                                             onClick={async () => {
                                                 try {
-                                                    const result = await getAllMatchingLeadIds({
-                                                        search,
-                                                        status: status !== 'all' ? status : undefined,
-                                                        country: countryFilter !== 'all' ? countryFilter : undefined,
-                                                        selectedUserId: selectedUserId !== 'all-user' ? selectedUserId : undefined,
-                                                        group: groupFilter !== 'all' ? groupFilter : undefined,
-                                                    }).unwrap();
+                                                    const result =
+                                                        await getAllMatchingLeadIds(
+                                                            {
+                                                                search,
+                                                                status:
+                                                                    status !==
+                                                                    'all'
+                                                                        ? status
+                                                                        : undefined,
+                                                                country:
+                                                                    countryFilter !==
+                                                                    'all'
+                                                                        ? countryFilter
+                                                                        : undefined,
+                                                                selectedUserId:
+                                                                    selectedUserId !==
+                                                                    'all-user'
+                                                                        ? selectedUserId
+                                                                        : undefined,
+                                                                group:
+                                                                    groupFilter !==
+                                                                    'all'
+                                                                        ? groupFilter
+                                                                        : undefined,
+                                                            }
+                                                        ).unwrap();
 
                                                     if (result.leadIds) {
-                                                        setSelectedLeads(new Set(result.leadIds));
-                                                        toast.success(`Selected ${result.leadIds.length} leads`);
+                                                        setSelectedLeads(
+                                                            new Set(
+                                                                result.leadIds
+                                                            )
+                                                        );
+                                                        toast.success(
+                                                            `Selected ${result.leadIds.length} leads`
+                                                        );
                                                     }
                                                 } catch {
-                                                    toast.error('Failed to select all leads');
+                                                    toast.error(
+                                                        'Failed to select all leads'
+                                                    );
                                                 }
                                             }}
                                             className="h-7 text-xs gap-1.5"
                                         >
-                                            {isLoadingAllIds ? 'Loading...' : 'Select All'}
+                                            {isLoadingAllIds
+                                                ? 'Loading...'
+                                                : 'Select All'}
                                         </Button>
                                         {selectedLeads.size > 0 && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => setSelectedLeads(new Set())}
+                                                onClick={() =>
+                                                    setSelectedLeads(new Set())
+                                                }
                                                 className="h-7 text-xs text-muted-foreground"
                                             >
                                                 <X className="w-3.5 h-3.5 mr-1" />
@@ -580,65 +807,144 @@ export default function LeadsTable() {
                                         {isSelectionMode && (
                                             <TableHead className="w-10 text-center">
                                                 <Checkbox
-                                                    checked={leads.length > 0 && leads.every((lead: ILead) => selectedLeads.has(lead._id))}
-                                                    onCheckedChange={(checked) => {
+                                                    checked={
+                                                        leads.length > 0 &&
+                                                        leads.every(
+                                                            (lead: ILead) =>
+                                                                selectedLeads.has(
+                                                                    lead._id
+                                                                )
+                                                        )
+                                                    }
+                                                    onCheckedChange={(
+                                                        checked
+                                                    ) => {
                                                         if (checked) {
-                                                            const newSet = new Set(selectedLeads);
-                                                            leads.forEach((lead: ILead) => newSet.add(lead._id));
-                                                            setSelectedLeads(newSet);
+                                                            const newSet =
+                                                                new Set(
+                                                                    selectedLeads
+                                                                );
+                                                            leads.forEach(
+                                                                (lead: ILead) =>
+                                                                    newSet.add(
+                                                                        lead._id
+                                                                    )
+                                                            );
+                                                            setSelectedLeads(
+                                                                newSet
+                                                            );
                                                         } else {
-                                                            const newSet = new Set(selectedLeads);
-                                                            leads.forEach((lead: ILead) => newSet.delete(lead._id));
-                                                            setSelectedLeads(newSet);
+                                                            const newSet =
+                                                                new Set(
+                                                                    selectedLeads
+                                                                );
+                                                            leads.forEach(
+                                                                (lead: ILead) =>
+                                                                    newSet.delete(
+                                                                        lead._id
+                                                                    )
+                                                            );
+                                                            setSelectedLeads(
+                                                                newSet
+                                                            );
                                                         }
                                                     }}
                                                     aria-label="Select all"
                                                 />
                                             </TableHead>
                                         )}
-                                        <TableHead className="text-xs font-semibold">Company</TableHead>
-                                        <TableHead className="text-xs font-semibold">Website</TableHead>
-                                        <TableHead className="text-xs font-semibold w-[140px]">Name</TableHead>
-                                        <TableHead className="text-xs font-semibold">Emails</TableHead>
-                                        <TableHead className="text-xs font-semibold">Designation</TableHead>
-                                        <TableHead className="text-xs font-semibold">Country</TableHead>
-                                        <TableHead className="text-xs font-semibold">Group</TableHead>
-                                        <TableHead className="text-xs font-semibold">Notes</TableHead>
-                                        <TableHead className="text-xs font-semibold text-center w-16">Actions</TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Company
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Website
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold w-[140px]">
+                                            Name
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Emails
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Designation
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Country
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Group
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold">
+                                            Notes
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold text-center w-16">
+                                            Actions
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
 
                                 <TableBody>
-                                    {(isLoading || isFetching) ? (
+                                    {isLoading || isFetching ? (
                                         <TableSkeleton />
                                     ) : isError ? (
                                         <TableRow>
-                                        <TableCell colSpan={10} className="text-center py-16 text-destructive">
+                                            <TableCell
+                                                colSpan={10}
+                                                className="text-center py-16 text-destructive"
+                                            >
                                                 Failed to load leads
                                             </TableCell>
                                         </TableRow>
                                     ) : leads.length ? (
                                         leads.map((lead: ILead) => {
-                                            const contact = lead.contactPersons?.[0];
-                                            const fullName = [contact?.firstName, contact?.lastName].filter(Boolean).join(' ') || '—';
+                                            const contact =
+                                                lead.contactPersons?.[0];
+                                            const fullName =
+                                                [
+                                                    contact?.firstName,
+                                                    contact?.lastName,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ') || '—';
 
                                             return (
                                                 <TableRow
                                                     key={lead._id}
-                                                    className={`${selectedLeads.has(lead._id) ? 'bg-primary/5' : ''} hover:bg-muted/30`}
+                                                    className={`${
+                                                        selectedLeads.has(
+                                                            lead._id
+                                                        )
+                                                            ? 'bg-primary/5'
+                                                            : ''
+                                                    } hover:bg-muted/30`}
                                                 >
                                                     {isSelectionMode && (
                                                         <TableCell className="text-center py-2.5">
                                                             <Checkbox
-                                                                checked={selectedLeads.has(lead._id)}
-                                                                onCheckedChange={(checked) => {
-                                                                    const newSet = new Set(selectedLeads);
-                                                                    if (checked) {
-                                                                        newSet.add(lead._id);
+                                                                checked={selectedLeads.has(
+                                                                    lead._id
+                                                                )}
+                                                                onCheckedChange={(
+                                                                    checked
+                                                                ) => {
+                                                                    const newSet =
+                                                                        new Set(
+                                                                            selectedLeads
+                                                                        );
+                                                                    if (
+                                                                        checked
+                                                                    ) {
+                                                                        newSet.add(
+                                                                            lead._id
+                                                                        );
                                                                     } else {
-                                                                        newSet.delete(lead._id);
+                                                                        newSet.delete(
+                                                                            lead._id
+                                                                        );
                                                                     }
-                                                                    setSelectedLeads(newSet);
+                                                                    setSelectedLeads(
+                                                                        newSet
+                                                                    );
                                                                 }}
                                                                 aria-label={`Select ${lead.company.name}`}
                                                             />
@@ -647,9 +953,18 @@ export default function LeadsTable() {
 
                                                     <TableCell className="font-medium text-sm max-w-[150px] py-2.5">
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className="truncate">{lead.company.name}</span>
-                                                            {lead.source === 'imported' && (
-                                                                <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded" title="Imported">
+                                                            <span className="truncate">
+                                                                {
+                                                                    lead.company
+                                                                        .name
+                                                                }
+                                                            </span>
+                                                            {lead.source ===
+                                                                'imported' && (
+                                                                <span
+                                                                    className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded"
+                                                                    title="Imported"
+                                                                >
                                                                     📥
                                                                 </span>
                                                             )}
@@ -657,86 +972,155 @@ export default function LeadsTable() {
                                                     </TableCell>
 
                                                     <TableCell className="text-sm max-w-[150px] truncate py-2.5">
-                                                        {lead.company.website ? (
+                                                        {lead.company
+                                                            .website ? (
                                                             <Link
-                                                                href={lead.company.website.startsWith('http') ? lead.company.website : `https://${lead.company.website}`}
+                                                                href={
+                                                                    lead.company.website.startsWith(
+                                                                        'http'
+                                                                    )
+                                                                        ? lead
+                                                                              .company
+                                                                              .website
+                                                                        : `https://${lead.company.website}`
+                                                                }
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-primary hover:underline"
                                                             >
-                                                                {lead.company.website}
+                                                                {
+                                                                    lead.company
+                                                                        .website
+                                                                }
                                                             </Link>
-                                                        ) : '—'}
+                                                        ) : (
+                                                            '—'
+                                                        )}
                                                     </TableCell>
 
-                                                    <TableCell className="text-sm capitalize py-2.5 w-[140px] max-w-[140px] truncate">{fullName}</TableCell>
+                                                    <TableCell className="text-sm capitalize py-2.5 w-[140px] max-w-[140px] truncate">
+                                                        {fullName}
+                                                    </TableCell>
 
                                                     <TableCell className="text-sm max-w-[180px] truncate py-2.5">
-                                                        {lead.contactPersons?.flatMap(cp => cp.emails)?.slice(0, 2)?.join(', ') || '—'}
+                                                        {lead.contactPersons
+                                                            ?.flatMap(
+                                                                (cp) =>
+                                                                    cp.emails
+                                                            )
+                                                            ?.slice(0, 2)
+                                                            ?.join(', ') || '—'}
                                                     </TableCell>
 
                                                     <TableCell className="text-sm capitalize max-w-[120px] truncate py-2.5">
-                                                        {contact?.designation || '—'}
+                                                        {contact?.designation ||
+                                                            '—'}
                                                     </TableCell>
 
-                                                    <TableCell className="text-sm capitalize py-2.5">{lead.country || '—'}</TableCell>
+                                                    <TableCell className="text-sm capitalize py-2.5">
+                                                        {lead.country || '—'}
+                                                    </TableCell>
 
                                                     <TableCell className="py-2.5">
                                                         {lead.group ? (
                                                             <div className="flex items-center gap-1.5">
                                                                 <div
                                                                     className="w-2 h-2 rounded-full shrink-0"
-                                                                    style={{ backgroundColor: lead.group.color || '#6366f1' }}
+                                                                    style={{
+                                                                        backgroundColor:
+                                                                            lead
+                                                                                .group
+                                                                                .color ||
+                                                                            '#6366f1',
+                                                                    }}
                                                                 />
-                                                                <span className="text-sm truncate max-w-[80px]">{lead.group.name}</span>
+                                                                <span className="text-sm truncate max-w-[80px]">
+                                                                    {
+                                                                        lead
+                                                                            .group
+                                                                            .name
+                                                                    }
+                                                                </span>
                                                             </div>
-                                                        ) : <span className="text-muted-foreground">—</span>}
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                —
+                                                            </span>
+                                                        )}
                                                     </TableCell>
-
 
                                                     <TableCell className="text-sm max-w-[150px] py-2.5">
                                                         <Tooltip>
-                                                            <TooltipTrigger asChild>
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
                                                                 <span className="block truncate cursor-help text-muted-foreground">
-                                                                    {lead.activities?.[0]?.notes || '—'}
+                                                                    {lead
+                                                                        .activities?.[0]
+                                                                        ?.notes ||
+                                                                        '—'}
                                                                 </span>
                                                             </TooltipTrigger>
                                                             <TooltipContent className="max-w-sm wrap-break-word">
-                                                                {lead.activities?.[0]?.notes || 'No notes'}
+                                                                {lead
+                                                                    .activities?.[0]
+                                                                    ?.notes ||
+                                                                    'No notes'}
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TableCell>
 
                                                     <TableCell className="text-center py-2.5">
                                                         <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                            <DropdownMenuTrigger
+                                                                asChild
+                                                            >
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7"
+                                                                >
                                                                     <Ellipsis className="h-4 w-4" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-36">
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={`/leads/details/${lead._id}`}>
+                                                            <DropdownMenuContent
+                                                                align="end"
+                                                                className="w-36"
+                                                            >
+                                                                <DropdownMenuItem
+                                                                    asChild
+                                                                >
+                                                                    <Link
+                                                                        href={`/leads/details/${lead._id}`}
+                                                                    >
                                                                         <IconInfoCircle className="mr-2 h-4 w-4" />
                                                                         Details
                                                                     </Link>
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={`/leads/edit/${lead._id}`}>
+                                                                <DropdownMenuItem
+                                                                    asChild
+                                                                >
+                                                                    <Link
+                                                                        href={`/leads/edit/${lead._id}`}
+                                                                    >
                                                                         <IconEdit className="mr-2 h-4 w-4" />
                                                                         Edit
-                                                                    </Link>
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={`/tasks/create-task?leadId=${lead._id}`}>
-                                                                        <ClipboardList className="mr-2 h-4 w-4" />
-                                                                        Create Task
                                                                     </Link>
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
                                                                     className="text-destructive focus:text-destructive"
-                                                                    onClick={() => setDeleteDialog({ open: true, id: lead._id, name: lead.company.name })}
+                                                                    onClick={() =>
+                                                                        setDeleteDialog(
+                                                                            {
+                                                                                open: true,
+                                                                                id: lead._id,
+                                                                                name: lead
+                                                                                    .company
+                                                                                    .name,
+                                                                            }
+                                                                        )
+                                                                    }
                                                                 >
                                                                     <IconTrash className="mr-2 h-4 w-4" />
                                                                     Delete
@@ -749,12 +1133,21 @@ export default function LeadsTable() {
                                         })
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={10} className="text-center py-16 text-muted-foreground">
+                                            <TableCell
+                                                colSpan={10}
+                                                className="text-center py-16 text-muted-foreground"
+                                            >
                                                 <div className="flex flex-col items-center gap-2">
                                                     <Search className="h-8 w-8 text-muted-foreground/50" />
                                                     <p>No leads found</p>
                                                     {hasActiveFilters && (
-                                                        <Button variant="link" size="sm" onClick={resetFilters}>
+                                                        <Button
+                                                            variant="link"
+                                                            size="sm"
+                                                            onClick={
+                                                                resetFilters
+                                                            }
+                                                        >
                                                             Clear filters
                                                         </Button>
                                                     )}
@@ -769,9 +1162,22 @@ export default function LeadsTable() {
                         {/* Pagination */}
                         <div className="flex justify-between items-center pt-4">
                             <div className="text-sm text-muted-foreground">
-                                Showing <span className="font-medium text-foreground">{(page - 1) * perPage + 1}</span> to{' '}
-                                <span className="font-medium text-foreground">{Math.min(page * perPage, pagination.totalItems)}</span> of{' '}
-                                <span className="font-medium text-foreground">{pagination.totalItems}</span> leads
+                                Showing{' '}
+                                <span className="font-medium text-foreground">
+                                    {(page - 1) * perPage + 1}
+                                </span>{' '}
+                                to{' '}
+                                <span className="font-medium text-foreground">
+                                    {Math.min(
+                                        page * perPage,
+                                        pagination.totalItems
+                                    )}
+                                </span>{' '}
+                                of{' '}
+                                <span className="font-medium text-foreground">
+                                    {pagination.totalItems}
+                                </span>{' '}
+                                leads
                             </div>
                             <div className="flex items-center gap-1">
                                 <Button
@@ -791,34 +1197,52 @@ export default function LeadsTable() {
                                     const pages: (number | string)[] = [];
 
                                     if (totalPages <= 7) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                        for (let i = 1; i <= totalPages; i++)
+                                            pages.push(i);
                                     } else {
                                         pages.push(1);
                                         if (page > 3) pages.push('...');
                                         const start = Math.max(2, page - 1);
-                                        const end = Math.min(totalPages - 1, page + 1);
+                                        const end = Math.min(
+                                            totalPages - 1,
+                                            page + 1
+                                        );
                                         for (let i = start; i <= end; i++) {
-                                            if (!pages.includes(i)) pages.push(i);
+                                            if (!pages.includes(i))
+                                                pages.push(i);
                                         }
-                                        if (page < totalPages - 2) pages.push('...');
-                                        if (!pages.includes(totalPages)) pages.push(totalPages);
+                                        if (page < totalPages - 2)
+                                            pages.push('...');
+                                        if (!pages.includes(totalPages))
+                                            pages.push(totalPages);
                                     }
 
-                                    return pages.map((p, idx) => (
+                                    return pages.map((p, idx) =>
                                         p === '...' ? (
-                                            <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                                            <span
+                                                key={`ellipsis-${idx}`}
+                                                className="px-2 text-muted-foreground"
+                                            >
+                                                ...
+                                            </span>
                                         ) : (
                                             <Button
                                                 key={p}
-                                                variant={page === p ? 'default' : 'outline'}
+                                                variant={
+                                                    page === p
+                                                        ? 'default'
+                                                        : 'outline'
+                                                }
                                                 size="sm"
                                                 className="min-w-[32px] h-8"
-                                                onClick={() => setPage(p as number)}
+                                                onClick={() =>
+                                                    setPage(p as number)
+                                                }
                                             >
                                                 {p}
                                             </Button>
                                         )
-                                    ));
+                                    );
                                 })()}
 
                                 <Button
@@ -838,13 +1262,20 @@ export default function LeadsTable() {
             </CardContent>
 
             {/* Delete Confirmation Dialog */}
-            <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}>
+            <AlertDialog
+                open={deleteDialog.open}
+                onOpenChange={(open) =>
+                    setDeleteDialog((prev) => ({ ...prev, open }))
+                }
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete <strong>&quot;{deleteDialog.name}&quot;</strong>?
-                            This lead will be moved to trash and can be restored by an admin.
+                            Are you sure you want to delete{' '}
+                            <strong>&quot;{deleteDialog.name}&quot;</strong>?
+                            This lead will be moved to trash and can be restored
+                            by an admin.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -854,11 +1285,26 @@ export default function LeadsTable() {
                             disabled={isDeleting}
                             onClick={async () => {
                                 try {
-                                    await deleteLead({ id: deleteDialog.id }).unwrap();
-                                    toast.success(`Lead "${deleteDialog.name}" deleted successfully`);
-                                    setDeleteDialog({ open: false, id: '', name: '' });
+                                    await deleteLead({
+                                        id: deleteDialog.id,
+                                    }).unwrap();
+                                    toast.success(
+                                        `Lead "${deleteDialog.name}" deleted successfully`
+                                    );
+                                    setDeleteDialog({
+                                        open: false,
+                                        id: '',
+                                        name: '',
+                                    });
                                 } catch (error) {
-                                    toast.error((error as { data?: { message?: string } })?.data?.message || 'Failed to delete lead');
+                                    toast.error(
+                                        (
+                                            error as {
+                                                data?: { message?: string };
+                                            }
+                                        )?.data?.message ||
+                                            'Failed to delete lead'
+                                    );
                                 }
                             }}
                         >
@@ -876,12 +1322,17 @@ export default function LeadsTable() {
                             <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
                                 {selectedLeads.size}
                             </div>
-                            <span className="text-sm font-medium">selected</span>
+                            <span className="text-sm font-medium">
+                                selected
+                            </span>
                         </div>
 
                         <div className="w-px h-6 bg-border" />
 
-                        <Select value={assignToUserId} onValueChange={setAssignToUserId}>
+                        <Select
+                            value={assignToUserId}
+                            onValueChange={setAssignToUserId}
+                        >
                             <SelectTrigger className="w-[180px] h-8 text-sm bg-background">
                                 <UserPlus className="w-4 h-4 mr-2 text-muted-foreground" />
                                 <SelectValue placeholder="Assign to..." />
@@ -889,7 +1340,9 @@ export default function LeadsTable() {
                             <SelectContent>
                                 {usersData?.users?.map((u: IUser) => (
                                     <SelectItem key={u._id} value={u._id}>
-                                        <span className="font-medium">{u.firstName} {u.lastName}</span>
+                                        <span className="font-medium">
+                                            {u.firstName} {u.lastName}
+                                        </span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -901,22 +1354,42 @@ export default function LeadsTable() {
                             className="gap-1.5 h-8"
                             size="sm"
                         >
-                            {isAssigning ? 'Assigning...' : <><Check className="w-4 h-4" />Assign</>}
+                            {isAssigning ? (
+                                'Assigning...'
+                            ) : (
+                                <>
+                                    <Check className="w-4 h-4" />
+                                    Assign
+                                </>
+                            )}
                         </Button>
 
                         <div className="w-px h-6 bg-border" />
 
-                        <Select value={changeToGroupId} onValueChange={setChangeToGroupId}>
+                        <Select
+                            value={changeToGroupId}
+                            onValueChange={setChangeToGroupId}
+                        >
                             <SelectTrigger className="w-[150px] h-8 text-sm bg-background">
                                 <Folder className="w-4 h-4 mr-2 text-muted-foreground" />
                                 <SelectValue placeholder="Move to..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="no-group"><span className="text-muted-foreground">No Group</span></SelectItem>
+                                <SelectItem value="no-group">
+                                    <span className="text-muted-foreground">
+                                        No Group
+                                    </span>
+                                </SelectItem>
                                 {groups.map((g) => (
                                     <SelectItem key={g._id} value={g._id}>
                                         <div className="flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: g.color || '#6b7280' }} />
+                                            <span
+                                                className="w-2.5 h-2.5 rounded-full"
+                                                style={{
+                                                    backgroundColor:
+                                                        g.color || '#6b7280',
+                                                }}
+                                            />
                                             {g.name}
                                         </div>
                                     </SelectItem>
@@ -931,41 +1404,14 @@ export default function LeadsTable() {
                             size="sm"
                             variant="secondary"
                         >
-                            {isChangingGroup ? 'Moving...' : <><Folder className="w-4 h-4" />Move</>}
-                        </Button>
-
-                        <div className="w-px h-6 bg-border" />
-
-                        {/* Create Task Section */}
-                        {isAdmin && (
-                            <Select value={taskUserId} onValueChange={setTaskUserId}>
-                                <SelectTrigger className="w-[160px] h-8 text-sm bg-background">
-                                    <ClipboardList className="w-4 h-4 mr-2 text-muted-foreground" />
-                                    <SelectValue placeholder="Assign task to..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {usersData?.users?.map((u: IUser) => (
-                                        <SelectItem key={u._id} value={u._id}>
-                                            <span className="font-medium">{u.firstName} {u.lastName}</span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-
-                        <Button
-                            onClick={() => {
-                                const leadIds = Array.from(selectedLeads).join(',');
-                                const url = isAdmin && taskUserId
-                                    ? `/tasks/create-task?leads=${leadIds}&assignTo=${taskUserId}`
-                                    : `/tasks/create-task?leads=${leadIds}`;
-                                router.push(url);
-                            }}
-                            className="gap-1.5 h-8"
-                            size="sm"
-                        >
-                            <ClipboardList className="w-4 h-4" />
-                            Create Task
+                            {isChangingGroup ? (
+                                'Moving...'
+                            ) : (
+                                <>
+                                    <Folder className="w-4 h-4" />
+                                    Move
+                                </>
+                            )}
                         </Button>
 
                         <Button
@@ -975,7 +1421,6 @@ export default function LeadsTable() {
                                 setSelectedLeads(new Set());
                                 setAssignToUserId('');
                                 setChangeToGroupId('');
-                                setTaskUserId('');
                             }}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         >
@@ -986,7 +1431,10 @@ export default function LeadsTable() {
             )}
 
             {/* Bulk Assign Confirmation Dialog */}
-            <AlertDialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+            <AlertDialog
+                open={assignDialogOpen}
+                onOpenChange={setAssignDialogOpen}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
@@ -994,8 +1442,14 @@ export default function LeadsTable() {
                             Assign Leads
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            You are about to assign <strong>{selectedLeads.size} leads</strong> to{' '}
-                            <strong>{usersData?.users?.find((u: IUser) => u._id === assignToUserId)?.firstName || 'selected user'}</strong>.
+                            You are about to assign{' '}
+                            <strong>{selectedLeads.size} leads</strong> to{' '}
+                            <strong>
+                                {usersData?.users?.find(
+                                    (u: IUser) => u._id === assignToUserId
+                                )?.firstName || 'selected user'}
+                            </strong>
+                            .
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -1009,14 +1463,30 @@ export default function LeadsTable() {
                                         targetUserId: assignToUserId,
                                     }).unwrap();
 
-                                    const targetUser = usersData?.users?.find((u: IUser) => u._id === assignToUserId);
-                                    toast.success(`Successfully assigned ${result.results?.success || selectedLeads.size} leads to ${targetUser?.firstName || 'user'}`);
+                                    const targetUser = usersData?.users?.find(
+                                        (u: IUser) => u._id === assignToUserId
+                                    );
+                                    toast.success(
+                                        `Successfully assigned ${
+                                            result.results?.success ||
+                                            selectedLeads.size
+                                        } leads to ${
+                                            targetUser?.firstName || 'user'
+                                        }`
+                                    );
 
                                     setSelectedLeads(new Set());
                                     setAssignToUserId('');
                                     setAssignDialogOpen(false);
                                 } catch (error) {
-                                    toast.error((error as { data?: { message?: string } })?.data?.message || 'Failed to assign leads');
+                                    toast.error(
+                                        (
+                                            error as {
+                                                data?: { message?: string };
+                                            }
+                                        )?.data?.message ||
+                                            'Failed to assign leads'
+                                    );
                                 }
                             }}
                         >
@@ -1027,7 +1497,10 @@ export default function LeadsTable() {
             </AlertDialog>
 
             {/* Bulk Group Change Confirmation Dialog */}
-            <AlertDialog open={groupChangeDialogOpen} onOpenChange={setGroupChangeDialogOpen}>
+            <AlertDialog
+                open={groupChangeDialogOpen}
+                onOpenChange={setGroupChangeDialogOpen}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
@@ -1035,10 +1508,16 @@ export default function LeadsTable() {
                             Change Group
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            You are about to move <strong>{selectedLeads.size} leads</strong> to{' '}
+                            You are about to move{' '}
+                            <strong>{selectedLeads.size} leads</strong> to{' '}
                             <strong>
-                                {changeToGroupId === 'no-group' ? 'No Group' : groups.find((g) => g._id === changeToGroupId)?.name || 'selected group'}
-                            </strong>.
+                                {changeToGroupId === 'no-group'
+                                    ? 'No Group'
+                                    : groups.find(
+                                          (g) => g._id === changeToGroupId
+                                      )?.name || 'selected group'}
+                            </strong>
+                            .
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -1049,20 +1528,39 @@ export default function LeadsTable() {
                                 try {
                                     const result = await bulkChangeGroup({
                                         leadIds: Array.from(selectedLeads),
-                                        targetGroupId: changeToGroupId === 'no-group' ? null : changeToGroupId,
+                                        targetGroupId:
+                                            changeToGroupId === 'no-group'
+                                                ? null
+                                                : changeToGroupId,
                                     }).unwrap();
 
-                                    const targetGroup = changeToGroupId === 'no-group'
-                                        ? 'No Group'
-                                        : groups.find((g) => g._id === changeToGroupId)?.name || 'group';
+                                    const targetGroup =
+                                        changeToGroupId === 'no-group'
+                                            ? 'No Group'
+                                            : groups.find(
+                                                  (g) =>
+                                                      g._id === changeToGroupId
+                                              )?.name || 'group';
 
-                                    toast.success(`Successfully moved ${result.results?.success || selectedLeads.size} leads to "${targetGroup}"`);
+                                    toast.success(
+                                        `Successfully moved ${
+                                            result.results?.success ||
+                                            selectedLeads.size
+                                        } leads to "${targetGroup}"`
+                                    );
 
                                     setSelectedLeads(new Set());
                                     setChangeToGroupId('');
                                     setGroupChangeDialogOpen(false);
                                 } catch (error) {
-                                    toast.error((error as { data?: { message?: string } })?.data?.message || 'Failed to change group');
+                                    toast.error(
+                                        (
+                                            error as {
+                                                data?: { message?: string };
+                                            }
+                                        )?.data?.message ||
+                                            'Failed to change group'
+                                    );
                                 }
                             }}
                         >
