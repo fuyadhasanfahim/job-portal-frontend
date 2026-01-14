@@ -38,6 +38,10 @@ import {
     useGetTasksQuery,
 } from '@/redux/features/task/taskApi';
 import { useSignedUser } from '@/hooks/useSignedUser';
+import { IUser } from '@/types/user.interface';
+import { useTableColumns } from '@/hooks/useTableColumns';
+import { ColumnCustomizerDialog } from '@/components/shared/ColumnCustomizerDialog';
+import { UserFilterSelects } from '@/components/shared/UserFilterSelects';
 import { ILead } from '@/types/lead.interface';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -53,7 +57,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 
-type SortOption = 'companyAsc' | 'companyDesc' | 'countryAsc' | 'countryDesc';
+type SortOption =
+    | 'companyAsc'
+    | 'companyDesc'
+    | 'countryAsc'
+    | 'countryDesc'
+    | 'dateAsc'
+    | 'dateDesc';
 
 const statusTabs = [
     { value: 'all', label: 'All' },
@@ -76,13 +86,14 @@ const contactTypeTabs = [
 
 export default function RootLeadCreateTaskPage() {
     const { user } = useSignedUser();
+    const { isColumnVisible } = useTableColumns('createTask');
 
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
     const [countryFilter, setCountryFilter] = useState('all');
     const [status, setStatus] = useState('all');
-    const [sort, setSort] = useState<SortOption>('companyAsc');
+    const [sort, setSort] = useState<SortOption>('dateDesc'); // Default to Newest first
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState('');
@@ -91,6 +102,11 @@ export default function RootLeadCreateTaskPage() {
     const [contactFilter, setContactFilter] = useState<
         'all' | 'email-only' | 'phone-only' | 'email-with-phone'
     >('all');
+    const [selectedRole, setSelectedRole] = useState('all-role');
+    const [selectedUserId, setSelectedUserId] = useState('all-user');
+    const [sourceFilter, setSourceFilter] = useState('all');
+    const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+    const [dueDateOpen, setDueDateOpen] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -103,7 +119,27 @@ export default function RootLeadCreateTaskPage() {
 
     const { data: countries } = useGetCountriesQuery({});
     const { data: groupsData } = useGetGroupsQuery({});
-    const groups = groupsData?.groups ?? [];
+    const groups = groupsData?.data ?? [];
+
+    const getSortParams = () => {
+        switch (sort) {
+            case 'companyAsc':
+                return { sortBy: 'company.name', sortOrder: 'asc' };
+            case 'companyDesc':
+                return { sortBy: 'company.name', sortOrder: 'desc' };
+            case 'countryAsc':
+                return { sortBy: 'country', sortOrder: 'asc' };
+            case 'countryDesc':
+                return { sortBy: 'country', sortOrder: 'desc' };
+            case 'dateAsc':
+                return { sortBy: 'createdAt', sortOrder: 'asc' };
+            case 'dateDesc':
+            default:
+                return { sortBy: 'createdAt', sortOrder: 'desc' };
+        }
+    };
+
+    const { sortBy, sortOrder } = getSortParams();
 
     const {
         data,
@@ -113,12 +149,16 @@ export default function RootLeadCreateTaskPage() {
         page,
         limit: perPage,
         country: countryFilter,
-        sortBy: sort.includes('company') ? 'company.name' : 'country',
-        sortOrder: sort.endsWith('Asc') ? 'asc' : 'desc',
+        sortBy,
+        sortOrder: sortOrder as 'asc' | 'desc',
         status,
         search: debouncedSearch,
         group: groupFilter,
         contactFilter,
+        date: date ? date.toLocaleDateString('en-CA') : '',
+        dueDate: dueDate ? dueDate.toLocaleDateString('en-CA') : '',
+        source: sourceFilter,
+        selectedUserId,
     });
 
     const leads = data?.data ?? [];
@@ -181,6 +221,11 @@ export default function RootLeadCreateTaskPage() {
         setDate(undefined);
         setSearchTerm('');
         setPage(1);
+        setSort('dateDesc');
+        setSelectedRole('all-role');
+        setSelectedUserId('all-user');
+        setSourceFilter('all');
+        setDueDate(undefined);
     };
 
     const hasActiveFilters =
@@ -189,7 +234,12 @@ export default function RootLeadCreateTaskPage() {
         groupFilter !== 'all' ||
         contactFilter !== 'all' ||
         date ||
-        searchTerm;
+        searchTerm ||
+        sort !== 'dateDesc' || // Check against new default
+        selectedRole !== 'all-role' ||
+        selectedUserId !== 'all-user' ||
+        sourceFilter !== 'all' ||
+        dueDate;
 
     return (
         <Card>
@@ -363,13 +413,11 @@ export default function RootLeadCreateTaskPage() {
                             <Button
                                 variant="outline"
                                 className={cn(
-                                    'w-[140px] justify-between font-normal',
+                                    'w-[130px] justify-between font-normal text-xs',
                                     date && 'text-foreground'
                                 )}
                             >
-                                {date
-                                    ? date.toLocaleDateString()
-                                    : 'Select date'}
+                                {date ? date.toLocaleDateString() : 'Date'}
                                 <ChevronDownIcon className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
@@ -386,6 +434,35 @@ export default function RootLeadCreateTaskPage() {
                         </PopoverContent>
                     </Popover>
 
+                    {/* Due Date */}
+                    <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    'w-[130px] justify-between font-normal text-xs',
+                                    dueDate && 'text-foreground'
+                                )}
+                            >
+                                {dueDate
+                                    ? dueDate.toLocaleDateString()
+                                    : 'Due Date'}
+                                <ChevronDownIcon className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={dueDate}
+                                captionLayout="dropdown"
+                                onSelect={(d) => {
+                                    setDueDate(d);
+                                    setDueDateOpen(false);
+                                }}
+                            />
+                        </PopoverContent>
+                    </Popover>
+
                     {/* Sort */}
                     <Select
                         value={sort}
@@ -395,6 +472,12 @@ export default function RootLeadCreateTaskPage() {
                             <SelectValue placeholder="Sort" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="dateDesc">
+                                Newest first
+                            </SelectItem>
+                            <SelectItem value="dateAsc">
+                                Oldest first
+                            </SelectItem>
                             <SelectItem value="companyAsc">
                                 Company A-Z
                             </SelectItem>
@@ -410,12 +493,38 @@ export default function RootLeadCreateTaskPage() {
                         </SelectContent>
                     </Select>
 
+                    {/* Source */}
+                    <Select
+                        value={sourceFilter}
+                        onValueChange={setSourceFilter}
+                    >
+                        <SelectTrigger className="w-[130px]">
+                            <SelectValue placeholder="All Sources" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Sources</SelectItem>
+                            <SelectItem value="manual">Manual</SelectItem>
+                            <SelectItem value="imported">Imported</SelectItem>
+                            <SelectItem value="website">Website</SelectItem>
+                            <SelectItem value="facebook">Facebook</SelectItem>
+                            <SelectItem value="linkedin">LinkedIn</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Role & User Filters */}
+                    <UserFilterSelects
+                        selectedRole={selectedRole}
+                        setSelectedRole={setSelectedRole}
+                        selectedUserId={selectedUserId}
+                        setSelectedUserId={setSelectedUserId}
+                    />
+
                     {/* Per Page */}
                     <Select
                         value={String(perPage)}
                         onValueChange={(val) => setPerPage(Number(val))}
                     >
-                        <SelectTrigger className="w-[120px]">
+                        <SelectTrigger className="w-[100px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -439,6 +548,9 @@ export default function RootLeadCreateTaskPage() {
                             Reset
                         </Button>
                     )}
+
+                    {/* Column Customizer */}
+                    <ColumnCustomizerDialog page="createTask" />
                 </div>
 
                 {/* Table */}
@@ -460,24 +572,61 @@ export default function RootLeadCreateTaskPage() {
                                 <TableHead className="text-xs font-semibold min-w-[150px]">
                                     Company
                                 </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[140px]">
-                                    Website
-                                </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[130px]">
-                                    Contact
-                                </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[180px]">
-                                    Email
-                                </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[120px]">
-                                    Phone
-                                </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[100px]">
-                                    Country
-                                </TableHead>
-                                <TableHead className="text-xs font-semibold min-w-[100px]">
-                                    Status
-                                </TableHead>
+                                {isColumnVisible('website') && (
+                                    <TableHead className="text-xs font-semibold min-w-[140px]">
+                                        Website
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('name') && (
+                                    <TableHead className="text-xs font-semibold min-w-[130px]">
+                                        Contact
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('emails') && (
+                                    <TableHead className="text-xs font-semibold min-w-[180px]">
+                                        Email
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('phones') && (
+                                    <TableHead className="text-xs font-semibold min-w-[120px]">
+                                        Phone
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('country') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Country
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('status') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Status
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('dueDate') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Due Date
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('createdAt') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Created At
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('createdBy') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Created By
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('updatedAt') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Updated At
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('updatedBy') && (
+                                    <TableHead className="text-xs font-semibold min-w-[100px]">
+                                        Updated By
+                                    </TableHead>
+                                )}
                             </TableRow>
                         </TableHeader>
 
@@ -525,79 +674,157 @@ export default function RootLeadCreateTaskPage() {
                                         <TableCell className="font-medium text-sm truncate max-w-[150px]">
                                             {lead.company.name}
                                         </TableCell>
-                                        <TableCell className="text-sm truncate max-w-[140px]">
-                                            {lead.company.website ? (
-                                                <Link
-                                                    href={
-                                                        lead.company.website.startsWith(
-                                                            'http'
-                                                        )
-                                                            ? lead.company
-                                                                  .website
-                                                            : `https://${lead.company.website}`
-                                                    }
-                                                    target="_blank"
-                                                    className="text-blue-600 hover:underline"
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
-                                                    {lead.company.website}
-                                                </Link>
-                                            ) : (
-                                                <span className="text-muted-foreground">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-sm truncate max-w-[130px] capitalize">
-                                            {lead.contactPersons[0]?.firstName}{' '}
-                                            {lead.contactPersons[0]?.lastName}
-                                        </TableCell>
-                                        <TableCell className="text-sm truncate max-w-[180px]">
-                                            {lead.contactPersons[0]
-                                                ?.emails?.[0] || (
-                                                <span className="text-muted-foreground">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-sm truncate max-w-[120px]">
-                                            {lead.contactPersons[0]
-                                                ?.phones?.[0] || (
-                                                <span className="text-muted-foreground">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-sm truncate max-w-[100px]">
-                                            {lead.country || (
-                                                <span className="text-muted-foreground">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    'capitalize text-xs',
-                                                    lead.status === 'new' &&
-                                                        'bg-blue-50 text-blue-700 border-blue-200',
-                                                    lead.status ===
-                                                        'interested' &&
-                                                        'bg-green-50 text-green-700 border-green-200',
-                                                    lead.status ===
-                                                        'not-interested' &&
-                                                        'bg-red-50 text-red-700 border-red-200',
-                                                    lead.status ===
-                                                        'call-back' &&
-                                                        'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                        {isColumnVisible('website') && (
+                                            <TableCell className="text-sm truncate max-w-[140px]">
+                                                {lead.company.website ? (
+                                                    <Link
+                                                        href={
+                                                            lead.company.website.startsWith(
+                                                                'http'
+                                                            )
+                                                                ? lead.company
+                                                                      .website
+                                                                : `https://${lead.company.website}`
+                                                        }
+                                                        target="_blank"
+                                                        className="text-blue-600 hover:underline"
+                                                        onClick={(e) =>
+                                                            e.stopPropagation()
+                                                        }
+                                                    >
+                                                        {lead.company.website}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
                                                 )}
-                                            >
-                                                {lead.status.replace('-', ' ')}
-                                            </Badge>
-                                        </TableCell>
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('name') && (
+                                            <TableCell className="text-sm truncate max-w-[130px] capitalize">
+                                                {
+                                                    lead.contactPersons[0]
+                                                        ?.firstName
+                                                }{' '}
+                                                {
+                                                    lead.contactPersons[0]
+                                                        ?.lastName
+                                                }
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('emails') && (
+                                            <TableCell className="text-sm truncate max-w-[180px]">
+                                                {lead.contactPersons[0]
+                                                    ?.emails?.[0] || (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('phones') && (
+                                            <TableCell className="text-sm truncate max-w-[120px]">
+                                                {lead.contactPersons[0]
+                                                    ?.phones?.[0] || (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('country') && (
+                                            <TableCell className="text-sm truncate max-w-[100px]">
+                                                {lead.country || (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('status') && (
+                                            <TableCell>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'capitalize text-xs',
+                                                        lead.status === 'new' &&
+                                                            'bg-blue-50 text-blue-700 border-blue-200',
+                                                        lead.status ===
+                                                            'interested' &&
+                                                            'bg-green-50 text-green-700 border-green-200',
+                                                        lead.status ===
+                                                            'not-interested' &&
+                                                            'bg-red-50 text-red-700 border-red-200',
+                                                        lead.status ===
+                                                            'call-back' &&
+                                                            'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                    )}
+                                                >
+                                                    {lead.status.replace(
+                                                        '-',
+                                                        ' '
+                                                    )}
+                                                </Badge>
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('dueDate') && (
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {lead.activities?.[0]?.dueAt
+                                                    ? new Date(
+                                                          lead.activities[0].dueAt
+                                                      ).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('createdAt') && (
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {lead.createdAt
+                                                    ? new Date(
+                                                          lead.createdAt
+                                                      ).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('createdBy') && (
+                                            <TableCell className="text-sm text-muted-foreground capitalize">
+                                                {(() => {
+                                                    const creator =
+                                                        lead.createdBy ||
+                                                        (lead.owner as unknown as IUser);
+                                                    return creator?.firstName
+                                                        ? `${
+                                                              creator.firstName
+                                                          } ${
+                                                              creator.lastName ||
+                                                              ''
+                                                          }`
+                                                        : '—';
+                                                })()}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('updatedAt') && (
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {lead.updatedAt
+                                                    ? new Date(
+                                                          lead.updatedAt
+                                                      ).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
+                                        {isColumnVisible('updatedBy') && (
+                                            <TableCell className="text-sm text-muted-foreground capitalize">
+                                                {lead.updatedBy?.firstName
+                                                    ? `${
+                                                          lead.updatedBy
+                                                              .firstName
+                                                      } ${
+                                                          lead.updatedBy
+                                                              .lastName || ''
+                                                      }`
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))
                             ) : (

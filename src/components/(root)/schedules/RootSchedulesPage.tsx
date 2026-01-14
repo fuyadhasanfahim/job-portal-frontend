@@ -18,18 +18,29 @@ import {
     SelectItem,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { 
-    ChevronDownIcon, ChevronLeft, ChevronRight, Search, CalendarDays, 
-    RotateCcw, Pencil, Trash2, CheckSquare, X, FolderPlus, ClipboardPlus 
+import {
+    ChevronDownIcon,
+    ChevronLeft,
+    ChevronRight,
+    Search,
+    CalendarDays,
+    RotateCcw,
+    Pencil,
+    Trash2,
+    CheckSquare,
+    X,
+    FolderPlus,
+    ClipboardPlus,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
 import { useGetCountriesQuery } from '@/redux/features/country/countryApi';
-import { 
-    useGetLeadsQuery, 
-    useBulkDeleteLeadsMutation, 
-    useBulkChangeGroupMutation 
+import { IUser } from '@/types/user.interface';
+import {
+    useGetLeadsQuery,
+    useBulkDeleteLeadsMutation,
+    useBulkChangeGroupMutation,
 } from '@/redux/features/lead/leadApi';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import { useCreateTaskMutation } from '@/redux/features/task/taskApi';
@@ -61,12 +72,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Tooltip,
     TooltipContent,
@@ -78,6 +84,8 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { useSignedUser } from '@/hooks/useSignedUser';
+import { useTableColumns } from '@/hooks/useTableColumns';
+import { ColumnCustomizerDialog } from '@/components/shared/ColumnCustomizerDialog';
 
 // Only show specific statuses (no "all")
 const statusTabs = [
@@ -95,15 +103,24 @@ const copyToClipboard = (text: string | undefined) => {
 };
 
 // Tooltip cell component
-const TooltipCell = ({ value, className }: { value?: string | null; className?: string }) => {
+const TooltipCell = ({
+    value,
+    className,
+}: {
+    value?: string | null;
+    className?: string;
+}) => {
     if (!value) return <span className="text-muted-foreground">—</span>;
-    
+
     return (
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <span 
-                        className={cn("cursor-pointer hover:text-primary transition-colors truncate block", className)}
+                    <span
+                        className={cn(
+                            'cursor-pointer hover:text-primary transition-colors truncate block',
+                            className
+                        )}
                         onClick={() => copyToClipboard(value)}
                     >
                         {value}
@@ -111,7 +128,9 @@ const TooltipCell = ({ value, className }: { value?: string | null; className?: 
                 </TooltipTrigger>
                 <TooltipContent>
                     <p className="max-w-xs">{value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Click to copy</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Click to copy
+                    </p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
@@ -120,6 +139,7 @@ const TooltipCell = ({ value, className }: { value?: string | null; className?: 
 
 export default function RootSchedulesPage() {
     const { user } = useSignedUser();
+    const { isColumnVisible } = useTableColumns('schedules');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(20);
     const [countryFilter, setCountryFilter] = useState('all');
@@ -133,7 +153,7 @@ export default function RootSchedulesPage() {
     // Selection mode
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-    
+
     // Dialogs
     const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
     const [groupDialog, setGroupDialog] = useState(false);
@@ -155,15 +175,13 @@ export default function RootSchedulesPage() {
     const groups = groupsData?.data ?? [];
 
     // API mutations
-    const [bulkDeleteLeads, { isLoading: isBulkDeleting }] = useBulkDeleteLeadsMutation();
-    const [bulkChangeGroup, { isLoading: isChangingGroup }] = useBulkChangeGroupMutation();
+    const [bulkDeleteLeads, { isLoading: isBulkDeleting }] =
+        useBulkDeleteLeadsMutation();
+    const [bulkChangeGroup, { isLoading: isChangingGroup }] =
+        useBulkChangeGroupMutation();
     const [createTask, { isLoading: isCreatingTask }] = useCreateTaskMutation();
 
-    const {
-        data,
-        isLoading,
-        isFetching,
-    } = useGetLeadsQuery({
+    const { data, isLoading, isFetching } = useGetLeadsQuery({
         page,
         limit: perPage,
         country: countryFilter,
@@ -184,7 +202,8 @@ export default function RootSchedulesPage() {
         setPage(1);
     };
 
-    const hasActiveFilters = countryFilter !== 'all' || groupFilter !== 'all' || date || searchTerm;
+    const hasActiveFilters =
+        countryFilter !== 'all' || groupFilter !== 'all' || date || searchTerm;
 
     // Selection handlers
     const handleSelectAll = (checked: boolean) => {
@@ -196,8 +215,8 @@ export default function RootSchedulesPage() {
     };
 
     const handleToggleLead = (id: string) => {
-        setSelectedLeads(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        setSelectedLeads((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
     };
 
@@ -209,12 +228,19 @@ export default function RootSchedulesPage() {
     // Bulk actions
     const handleBulkDelete = async () => {
         try {
-            const result = await bulkDeleteLeads({ leadIds: selectedLeads }).unwrap();
-            toast.success(result.message || `${result.successCount} leads deleted`);
+            const result = await bulkDeleteLeads({
+                leadIds: selectedLeads,
+            }).unwrap();
+            toast.success(
+                result.message || `${result.successCount} leads deleted`
+            );
             setBulkDeleteDialog(false);
             exitSelectionMode();
         } catch (error) {
-            toast.error((error as { data?: { message?: string } })?.data?.message || 'Failed to delete');
+            toast.error(
+                (error as { data?: { message?: string } })?.data?.message ||
+                    'Failed to delete'
+            );
         }
     };
 
@@ -224,16 +250,22 @@ export default function RootSchedulesPage() {
             return;
         }
         try {
-            const result = await bulkChangeGroup({ 
-                leadIds: selectedLeads, 
-                targetGroupId: selectedGroupId === 'none' ? null : selectedGroupId 
+            const result = await bulkChangeGroup({
+                leadIds: selectedLeads,
+                targetGroupId:
+                    selectedGroupId === 'none' ? null : selectedGroupId,
             }).unwrap();
-            toast.success(result.message || `Group changed for ${result.success} leads`);
+            toast.success(
+                result.message || `Group changed for ${result.success} leads`
+            );
             setGroupDialog(false);
             setSelectedGroupId('');
             exitSelectionMode();
         } catch (error) {
-            toast.error((error as { data?: { message?: string } })?.data?.message || 'Failed to change group');
+            toast.error(
+                (error as { data?: { message?: string } })?.data?.message ||
+                    'Failed to change group'
+            );
         }
     };
 
@@ -241,7 +273,8 @@ export default function RootSchedulesPage() {
     const generateTaskTitle = () => {
         const now = new Date();
         const dateStr = format(now, 'MMM d, yyyy');
-        const statusLabel = statusTabs.find(s => s.value === status)?.label || status;
+        const statusLabel =
+            statusTabs.find((s) => s.value === status)?.label || status;
         return `${statusLabel} Follow-up - ${dateStr}`;
     };
 
@@ -271,7 +304,10 @@ export default function RootSchedulesPage() {
             setTaskTitle('');
             exitSelectionMode();
         } catch (error) {
-            toast.error((error as { data?: { message?: string } })?.data?.message || 'Failed to create task');
+            toast.error(
+                (error as { data?: { message?: string } })?.data?.message ||
+                    'Failed to create task'
+            );
         }
     };
 
@@ -289,7 +325,7 @@ export default function RootSchedulesPage() {
     const getPageNumbers = () => {
         const totalPages = pagination.totalPages;
         const pages: (number | string)[] = [];
-        
+
         if (totalPages <= 7) {
             for (let i = 1; i <= totalPages; i++) pages.push(i);
         } else {
@@ -329,7 +365,11 @@ export default function RootSchedulesPage() {
                 >
                     <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-muted/50 w-full justify-start">
                         {statusTabs.map((s) => (
-                            <TabsTrigger key={s.value} value={s.value} className="capitalize text-xs">
+                            <TabsTrigger
+                                key={s.value}
+                                value={s.value}
+                                className="capitalize text-xs"
+                            >
                                 {s.label}
                             </TabsTrigger>
                         ))}
@@ -351,9 +391,13 @@ export default function RootSchedulesPage() {
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Select Leads Button - At start with filters */}
                     <Button
-                        variant={selectionMode ? "secondary" : "outline"}
+                        variant={selectionMode ? 'secondary' : 'outline'}
                         size="sm"
-                        onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+                        onClick={() =>
+                            selectionMode
+                                ? exitSelectionMode()
+                                : setSelectionMode(true)
+                        }
                         className="gap-2"
                     >
                         {selectionMode ? (
@@ -371,14 +415,21 @@ export default function RootSchedulesPage() {
 
                     <div className="w-px h-6 bg-border" />
 
-                    <Select value={countryFilter} onValueChange={setCountryFilter}>
+                    <Select
+                        value={countryFilter}
+                        onValueChange={setCountryFilter}
+                    >
                         <SelectTrigger className="w-[140px]">
                             <SelectValue placeholder="Country" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Countries</SelectItem>
                             {countries?.map((c) => (
-                                <SelectItem key={c.name} value={c.name} className="capitalize">
+                                <SelectItem
+                                    key={c.name}
+                                    value={c.name}
+                                    className="capitalize"
+                                >
                                     {c.name}
                                 </SelectItem>
                             ))}
@@ -391,21 +442,41 @@ export default function RootSchedulesPage() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Groups</SelectItem>
-                            {groups.map((g: { _id: string; name: string; color?: string }) => (
-                                <SelectItem key={g._id} value={g._id}>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: g.color || '#6366f1' }} />
-                                        {g.name}
-                                    </div>
-                                </SelectItem>
-                            ))}
+                            {groups.map(
+                                (g: {
+                                    _id: string;
+                                    name: string;
+                                    color?: string;
+                                }) => (
+                                    <SelectItem key={g._id} value={g._id}>
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-2 h-2 rounded-full"
+                                                style={{
+                                                    backgroundColor:
+                                                        g.color || '#6366f1',
+                                                }}
+                                            />
+                                            {g.name}
+                                        </div>
+                                    </SelectItem>
+                                )
+                            )}
                         </SelectContent>
                     </Select>
 
                     <Popover open={open} onOpenChange={setOpen}>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-[140px] justify-between font-normal", date && "text-foreground")}>
-                                {date ? format(date, 'MMM d, yyyy') : 'Select date'}
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    'w-[140px] justify-between font-normal',
+                                    date && 'text-foreground'
+                                )}
+                            >
+                                {date
+                                    ? format(date, 'MMM d, yyyy')
+                                    : 'Select date'}
                                 <ChevronDownIcon className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
@@ -414,28 +485,44 @@ export default function RootSchedulesPage() {
                                 mode="single"
                                 selected={date}
                                 captionLayout="dropdown"
-                                onSelect={(d) => { setDate(d); setOpen(false); }}
+                                onSelect={(d) => {
+                                    setDate(d);
+                                    setOpen(false);
+                                }}
                             />
                         </PopoverContent>
                     </Popover>
 
-                    <Select value={String(perPage)} onValueChange={(val) => setPerPage(Number(val))}>
+                    <Select
+                        value={String(perPage)}
+                        onValueChange={(val) => setPerPage(Number(val))}
+                    >
                         <SelectTrigger className="w-[100px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             {[10, 20, 50, 100].map((n) => (
-                                <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+                                <SelectItem key={n} value={String(n)}>
+                                    {n} / page
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
 
                     {hasActiveFilters && (
-                        <Button variant="ghost" size="sm" onClick={resetFilters} className="gap-1.5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={resetFilters}
+                            className="gap-1.5"
+                        >
                             <RotateCcw className="h-4 w-4" />
                             Reset
                         </Button>
                     )}
+
+                    {/* Column Customizer */}
+                    <ColumnCustomizerDialog page="schedules" />
                 </div>
 
                 {/* Table */}
@@ -446,20 +533,74 @@ export default function RootSchedulesPage() {
                                 {selectionMode && (
                                     <TableHead className="w-10 text-center">
                                         <Checkbox
-                                            checked={selectedLeads.length === leads.length && leads.length > 0}
-                                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                            checked={
+                                                selectedLeads.length ===
+                                                    leads.length &&
+                                                leads.length > 0
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                handleSelectAll(!!checked)
+                                            }
                                         />
                                     </TableHead>
                                 )}
-                                <TableHead className="text-xs font-semibold w-[90px]">Due Date</TableHead>
-                                <TableHead className="text-xs font-semibold w-[80px]">Status</TableHead>
-                                <TableHead className="text-xs font-semibold w-[90px]">Next Action</TableHead>
-                                <TableHead className="text-xs font-semibold w-[130px]">Company</TableHead>
-                                <TableHead className="text-xs font-semibold w-[110px]">Website</TableHead>
-                                <TableHead className="text-xs font-semibold w-[90px]">Country</TableHead>
-                                <TableHead className="text-xs font-semibold w-[90px]">Group</TableHead>
-                                <TableHead className="text-xs font-semibold w-[130px]">Notes</TableHead>
-                                <TableHead className="text-xs font-semibold w-[70px] text-center">Action</TableHead>
+                                <TableHead className="text-xs font-semibold w-[90px]">
+                                    Due Date
+                                </TableHead>
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Status
+                                </TableHead>
+                                {isColumnVisible('nextAction') && (
+                                    <TableHead className="text-xs font-semibold w-[90px]">
+                                        Next Action
+                                    </TableHead>
+                                )}
+                                <TableHead className="text-xs font-semibold w-[130px]">
+                                    Company
+                                </TableHead>
+                                {isColumnVisible('website') && (
+                                    <TableHead className="text-xs font-semibold w-[110px]">
+                                        Website
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('country') && (
+                                    <TableHead className="text-xs font-semibold w-[90px]">
+                                        Country
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('group') && (
+                                    <TableHead className="text-xs font-semibold w-[90px]">
+                                        Group
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('notes') && (
+                                    <TableHead className="text-xs font-semibold w-[130px]">
+                                        Notes
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('createdAt') && (
+                                    <TableHead className="text-xs font-semibold w-[90px]">
+                                        Created At
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('createdBy') && (
+                                    <TableHead className="text-xs font-semibold w-[100px]">
+                                        Created By
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('updatedAt') && (
+                                    <TableHead className="text-xs font-semibold w-[90px]">
+                                        Updated At
+                                    </TableHead>
+                                )}
+                                {isColumnVisible('updatedBy') && (
+                                    <TableHead className="text-xs font-semibold w-[100px]">
+                                        Updated By
+                                    </TableHead>
+                                )}
+                                <TableHead className="text-xs font-semibold w-[70px] text-center">
+                                    Action
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
 
@@ -467,7 +608,9 @@ export default function RootSchedulesPage() {
                             {isLoading || isFetching ? (
                                 Array.from({ length: 8 }).map((_, i) => (
                                     <TableRow key={i} className="animate-pulse">
-                                        {Array.from({ length: selectionMode ? 10 : 9 }).map((__, j) => (
+                                        {Array.from({
+                                            length: selectionMode ? 10 : 9,
+                                        }).map((__, j) => (
                                             <TableCell key={j} className="py-3">
                                                 <Skeleton className="h-4 w-full max-w-[80px] rounded-full" />
                                             </TableCell>
@@ -476,81 +619,232 @@ export default function RootSchedulesPage() {
                                 ))
                             ) : leads.length ? (
                                 leads.map((lead: ILead) => {
-                                    const { dueAt, nextAction } = getScheduleInfo(lead);
+                                    const { dueAt, nextAction } =
+                                        getScheduleInfo(lead);
                                     const group = lead.group;
-                                    const isSelected = selectedLeads.includes(lead._id);
-                                    
+                                    const isSelected = selectedLeads.includes(
+                                        lead._id
+                                    );
+
                                     return (
-                                        <TableRow 
+                                        <TableRow
                                             key={lead._id}
                                             className={cn(
-                                                "hover:bg-muted/50 transition-colors",
-                                                selectionMode && isSelected && "bg-primary/5"
+                                                'hover:bg-muted/50 transition-colors',
+                                                selectionMode &&
+                                                    isSelected &&
+                                                    'bg-primary/5'
                                             )}
                                         >
                                             {selectionMode && (
                                                 <TableCell className="py-2 text-center">
                                                     <Checkbox
                                                         checked={isSelected}
-                                                        onCheckedChange={() => handleToggleLead(lead._id)}
+                                                        onCheckedChange={() =>
+                                                            handleToggleLead(
+                                                                lead._id
+                                                            )
+                                                        }
                                                     />
                                                 </TableCell>
                                             )}
                                             <TableCell className="text-sm font-medium">
                                                 {dueAt ? (
-                                                    <span className="text-primary">{format(new Date(dueAt), 'MMM d')}</span>
-                                                ) : <span className="text-muted-foreground">—</span>}
+                                                    <span className="text-primary">
+                                                        {format(
+                                                            new Date(dueAt),
+                                                            'MMM d'
+                                                        )}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className={cn(
-                                                    "capitalize text-[10px]",
-                                                    lead.status === 'interested' && "bg-green-50 text-green-700 border-green-200",
-                                                    lead.status === 'not-interested' && "bg-red-50 text-red-700 border-red-200",
-                                                    lead.status === 'test-trial' && "bg-purple-50 text-purple-700 border-purple-200",
-                                                    lead.status === 'call-back' && "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                                )}>
-                                                    {lead.status.replace('-', ' ')}
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'capitalize text-[10px]',
+                                                        lead.status ===
+                                                            'interested' &&
+                                                            'bg-green-50 text-green-700 border-green-200',
+                                                        lead.status ===
+                                                            'not-interested' &&
+                                                            'bg-red-50 text-red-700 border-red-200',
+                                                        lead.status ===
+                                                            'test-trial' &&
+                                                            'bg-purple-50 text-purple-700 border-purple-200',
+                                                        lead.status ===
+                                                            'call-back' &&
+                                                            'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                    )}
+                                                >
+                                                    {lead.status.replace(
+                                                        '-',
+                                                        ' '
+                                                    )}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-xs capitalize">
-                                                {nextAction ? nextAction.replace('-', ' ') : <span className="text-muted-foreground">—</span>}
-                                            </TableCell>
+                                            {isColumnVisible('nextAction') && (
+                                                <TableCell className="text-xs capitalize">
+                                                    {nextAction ? (
+                                                        nextAction.replace(
+                                                            '-',
+                                                            ' '
+                                                        )
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                            )}
                                             <TableCell className="text-sm truncate max-w-[130px]">
-                                                <TooltipCell value={lead.company.name} className="font-medium max-w-[130px]" />
+                                                <TooltipCell
+                                                    value={lead.company.name}
+                                                    className="font-medium max-w-[130px]"
+                                                />
                                             </TableCell>
-                                            <TableCell className="text-sm truncate max-w-[110px]">
-                                                {lead.company.website ? (
-                                                    <Link
-                                                        href={lead.company.website.startsWith('http') ? lead.company.website : `https://${lead.company.website}`}
-                                                        target="_blank"
-                                                        className="text-blue-600 hover:underline truncate block max-w-[110px]"
-                                                    >
-                                                        {lead.company.website}
-                                                    </Link>
-                                                ) : <span className="text-muted-foreground">—</span>}
-                                            </TableCell>
-                                            <TableCell className="text-sm truncate max-w-[90px]">
-                                                <TooltipCell value={lead.country} className="max-w-[90px]" />
-                                            </TableCell>
-                                            <TableCell className="text-sm truncate max-w-[90px]">
-                                                {group ? (
-                                                    <div className="flex items-center gap-1">
-                                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: group.color || '#6366f1' }} />
-                                                        <span className="truncate text-xs">{group.name}</span>
-                                                    </div>
-                                                ) : <span className="text-muted-foreground">—</span>}
-                                            </TableCell>
-                                            <TableCell className="text-sm truncate max-w-[130px]">
-                                                <TooltipCell value={lead.activities?.[0]?.notes} className="max-w-[130px]" />
-                                            </TableCell>
+                                            {isColumnVisible('website') && (
+                                                <TableCell className="text-sm truncate max-w-[110px]">
+                                                    {lead.company.website ? (
+                                                        <Link
+                                                            href={
+                                                                lead.company.website.startsWith(
+                                                                    'http'
+                                                                )
+                                                                    ? lead
+                                                                          .company
+                                                                          .website
+                                                                    : `https://${lead.company.website}`
+                                                            }
+                                                            target="_blank"
+                                                            className="text-blue-600 hover:underline truncate block max-w-[110px]"
+                                                        >
+                                                            {
+                                                                lead.company
+                                                                    .website
+                                                            }
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('country') && (
+                                                <TableCell className="text-sm truncate max-w-[90px]">
+                                                    <TooltipCell
+                                                        value={lead.country}
+                                                        className="max-w-[90px]"
+                                                    />
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('group') && (
+                                                <TableCell className="text-sm truncate max-w-[90px]">
+                                                    {group ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <div
+                                                                className="w-2 h-2 rounded-full shrink-0"
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        group.color ||
+                                                                        '#6366f1',
+                                                                }}
+                                                            />
+                                                            <span className="truncate text-xs">
+                                                                {group.name}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('notes') && (
+                                                <TableCell className="text-sm truncate max-w-[130px]">
+                                                    <TooltipCell
+                                                        value={
+                                                            lead.activities?.[0]
+                                                                ?.notes
+                                                        }
+                                                        className="max-w-[130px]"
+                                                    />
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('createdAt') && (
+                                                <TableCell className="text-sm text-muted-foreground">
+                                                    {lead.createdAt
+                                                        ? new Date(
+                                                              lead.createdAt
+                                                          ).toLocaleDateString()
+                                                        : '—'}
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('createdBy') && (
+                                                <TableCell className="text-sm text-muted-foreground capitalize">
+                                                    {(() => {
+                                                        const creator =
+                                                            lead.createdBy ||
+                                                            (lead.owner as unknown as IUser);
+                                                        return creator?.firstName
+                                                            ? `${
+                                                                  creator.firstName
+                                                              } ${
+                                                                  creator.lastName ||
+                                                                  ''
+                                                              }`
+                                                            : '—';
+                                                    })()}
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('updatedAt') && (
+                                                <TableCell className="text-sm text-muted-foreground">
+                                                    {lead.updatedAt
+                                                        ? new Date(
+                                                              lead.updatedAt
+                                                          ).toLocaleDateString()
+                                                        : '—'}
+                                                </TableCell>
+                                            )}
+                                            {isColumnVisible('updatedBy') && (
+                                                <TableCell className="text-sm text-muted-foreground capitalize">
+                                                    {lead.updatedBy?.firstName
+                                                        ? `${
+                                                              lead.updatedBy
+                                                                  .firstName
+                                                          } ${
+                                                              lead.updatedBy
+                                                                  .lastName ||
+                                                              ''
+                                                          }`
+                                                        : '—'}
+                                                </TableCell>
+                                            )}
                                             <TableCell>
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                                        <Link href={`/leads/edit/${lead._id}`}>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7"
+                                                        asChild
+                                                    >
+                                                        <Link
+                                                            href={`/leads/edit/${lead._id}`}
+                                                        >
                                                             <Pencil className="h-3.5 w-3.5" />
                                                         </Link>
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                                    >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </div>
@@ -560,12 +854,21 @@ export default function RootSchedulesPage() {
                                 })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={selectionMode ? 10 : 9} className="text-center py-16 text-muted-foreground">
+                                    <TableCell
+                                        colSpan={selectionMode ? 10 : 9}
+                                        className="text-center py-16 text-muted-foreground"
+                                    >
                                         <div className="flex flex-col items-center gap-2">
                                             <CalendarDays className="h-8 w-8 text-muted-foreground/50" />
                                             <p>No scheduled follow-ups found</p>
                                             {hasActiveFilters && (
-                                                <Button variant="link" size="sm" onClick={resetFilters}>Clear filters</Button>
+                                                <Button
+                                                    variant="link"
+                                                    size="sm"
+                                                    onClick={resetFilters}
+                                                >
+                                                    Clear filters
+                                                </Button>
                                             )}
                                         </div>
                                     </TableCell>
@@ -580,11 +883,26 @@ export default function RootSchedulesPage() {
                     <div className="text-sm text-muted-foreground">
                         {pagination.totalItems > 0 ? (
                             <>
-                                Showing <span className="font-medium text-foreground">{(page - 1) * perPage + 1}</span> to{' '}
-                                <span className="font-medium text-foreground">{Math.min(page * perPage, pagination.totalItems)}</span> of{' '}
-                                <span className="font-medium text-foreground">{pagination.totalItems}</span> leads
+                                Showing{' '}
+                                <span className="font-medium text-foreground">
+                                    {(page - 1) * perPage + 1}
+                                </span>{' '}
+                                to{' '}
+                                <span className="font-medium text-foreground">
+                                    {Math.min(
+                                        page * perPage,
+                                        pagination.totalItems
+                                    )}
+                                </span>{' '}
+                                of{' '}
+                                <span className="font-medium text-foreground">
+                                    {pagination.totalItems}
+                                </span>{' '}
+                                leads
                             </>
-                        ) : 'No leads to display'}
+                        ) : (
+                            'No leads to display'
+                        )}
                     </div>
                     <div className="flex items-center gap-1">
                         <Button
@@ -599,9 +917,14 @@ export default function RootSchedulesPage() {
                         </Button>
 
                         {/* Page Numbers */}
-                        {getPageNumbers().map((p, idx) => (
+                        {getPageNumbers().map((p, idx) =>
                             p === '...' ? (
-                                <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                                <span
+                                    key={`ellipsis-${idx}`}
+                                    className="px-2 text-muted-foreground"
+                                >
+                                    ...
+                                </span>
                             ) : (
                                 <Button
                                     key={p}
@@ -613,12 +936,15 @@ export default function RootSchedulesPage() {
                                     {p}
                                 </Button>
                             )
-                        ))}
+                        )}
 
                         <Button
                             variant="outline"
                             size="sm"
-                            disabled={page === pagination.totalPages || pagination.totalPages === 0}
+                            disabled={
+                                page === pagination.totalPages ||
+                                pagination.totalPages === 0
+                            }
                             onClick={() => setPage((p) => p + 1)}
                             className="gap-1 h-8"
                         >
@@ -636,7 +962,8 @@ export default function RootSchedulesPage() {
                         <div className="flex items-center gap-2">
                             <CheckSquare className="h-5 w-5" />
                             <span className="font-medium">
-                                {selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''}
+                                {selectedLeads.length} lead
+                                {selectedLeads.length > 1 ? 's' : ''}
                             </span>
                         </div>
                         <div className="w-px h-6 bg-primary-foreground/30" />
@@ -680,12 +1007,18 @@ export default function RootSchedulesPage() {
             )}
 
             {/* Bulk Delete Dialog */}
-            <AlertDialog open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
+            <AlertDialog
+                open={bulkDeleteDialog}
+                onOpenChange={setBulkDeleteDialog}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {selectedLeads.length} Leads?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Delete {selectedLeads.length} Leads?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure? They will be moved to trash and can be restored by an admin.
+                            Are you sure? They will be moved to trash and can be
+                            restored by an admin.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -695,7 +1028,11 @@ export default function RootSchedulesPage() {
                             disabled={isBulkDeleting}
                             onClick={handleBulkDelete}
                         >
-                            {isBulkDeleting ? <Spinner className="h-4 w-4" /> : `Delete ${selectedLeads.length} Leads`}
+                            {isBulkDeleting ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                `Delete ${selectedLeads.length} Leads`
+                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -707,33 +1044,64 @@ export default function RootSchedulesPage() {
                     <DialogHeader>
                         <DialogTitle>Change Group</DialogTitle>
                         <DialogDescription>
-                            Select a new group for {selectedLeads.length} selected leads.
+                            Select a new group for {selectedLeads.length}{' '}
+                            selected leads.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
-                        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                        <Select
+                            value={selectedGroupId}
+                            onValueChange={setSelectedGroupId}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a group" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">
-                                    <span className="text-muted-foreground">Remove from group</span>
+                                    <span className="text-muted-foreground">
+                                        Remove from group
+                                    </span>
                                 </SelectItem>
-                                {groups.map((g: { _id: string; name: string; color?: string }) => (
-                                    <SelectItem key={g._id} value={g._id}>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: g.color || '#6366f1' }} />
-                                            {g.name}
-                                        </div>
-                                    </SelectItem>
-                                ))}
+                                {groups.map(
+                                    (g: {
+                                        _id: string;
+                                        name: string;
+                                        color?: string;
+                                    }) => (
+                                        <SelectItem key={g._id} value={g._id}>
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{
+                                                        backgroundColor:
+                                                            g.color ||
+                                                            '#6366f1',
+                                                    }}
+                                                />
+                                                {g.name}
+                                            </div>
+                                        </SelectItem>
+                                    )
+                                )}
                             </SelectContent>
                         </Select>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setGroupDialog(false)}>Cancel</Button>
-                        <Button onClick={handleChangeGroup} disabled={isChangingGroup || !selectedGroupId}>
-                            {isChangingGroup ? <Spinner className="h-4 w-4" /> : 'Change Group'}
+                        <Button
+                            variant="outline"
+                            onClick={() => setGroupDialog(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleChangeGroup}
+                            disabled={isChangingGroup || !selectedGroupId}
+                        >
+                            {isChangingGroup ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                'Change Group'
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -745,7 +1113,8 @@ export default function RootSchedulesPage() {
                     <DialogHeader>
                         <DialogTitle>Create Task</DialogTitle>
                         <DialogDescription>
-                            Create a new task with {selectedLeads.length} selected leads.
+                            Create a new task with {selectedLeads.length}{' '}
+                            selected leads.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4 space-y-4">
@@ -759,9 +1128,21 @@ export default function RootSchedulesPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setCreateTaskDialog(false)}>Cancel</Button>
-                        <Button onClick={handleCreateTask} disabled={isCreatingTask || !taskTitle.trim()}>
-                            {isCreatingTask ? <Spinner className="h-4 w-4" /> : 'Create Task'}
+                        <Button
+                            variant="outline"
+                            onClick={() => setCreateTaskDialog(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateTask}
+                            disabled={isCreatingTask || !taskTitle.trim()}
+                        >
+                            {isCreatingTask ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                'Create Task'
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

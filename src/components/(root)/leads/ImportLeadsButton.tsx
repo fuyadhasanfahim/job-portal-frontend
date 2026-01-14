@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useImportLeadsMutation } from '@/redux/features/lead/leadApi';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import { toast } from 'sonner';
 import {
@@ -133,11 +132,12 @@ export default function ImportLeadsButton() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [bytesLoaded, setBytesLoaded] = useState(0);
+    const [bytesTotal, setBytesTotal] = useState(0);
 
     // Auth token
     const token = useSelector((state: RootState) => state.auth.accessToken);
 
-    const [importLeads] = useImportLeadsMutation();
     const { data: groupsData } = useGetGroupsQuery();
     const groups: IGroup[] = groupsData?.data || [];
 
@@ -231,6 +231,8 @@ export default function ImportLeadsButton() {
             if (event.lengthComputable) {
                 const percent = Math.round((event.loaded / event.total) * 100);
                 setUploadProgress(percent);
+                setBytesLoaded(event.loaded);
+                setBytesTotal(event.total);
             }
         });
 
@@ -469,6 +471,9 @@ ${r.errors.length > 0 ? r.errors.join('\n') : 'No errors'}
         setSelectedGroupId('');
         setRequireEmail(false);
         setRequirePhone(false);
+        setUploadProgress(0);
+        setBytesLoaded(0);
+        setBytesTotal(0);
         setOpen(false);
     };
 
@@ -811,63 +816,123 @@ ${r.errors.length > 0 ? r.errors.join('\n') : 'No errors'}
                                             />
                                             <div>
                                                 <p className="font-medium">
-                                                    Uploading & Processing...
+                                                    {uploadProgress < 100
+                                                        ? 'Uploading Files...'
+                                                        : 'Processing on Server...'}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {files.length} file(s) -{' '}
+                                                    {files.length} file(s) —{' '}
                                                     {files
                                                         .map((f) => f.name)
                                                         .join(', ')}
                                                 </p>
                                             </div>
                                         </div>
-                                        <span className="text-xl font-bold text-primary">
+                                        <span className="text-2xl font-bold text-primary tabular-nums">
                                             {uploadProgress}%
                                         </span>
                                     </div>
 
                                     {/* Progress Bar */}
-                                    <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden mb-2">
+                                    <div className="w-full h-3 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden mb-3">
                                         <div
-                                            className="h-full bg-primary transition-all duration-300"
+                                            className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-300"
                                             style={{
                                                 width: `${uploadProgress}%`,
                                             }}
                                         />
                                     </div>
 
-                                    {/* Info Row */}
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                        <span>
-                                            {uploadProgress < 100
-                                                ? 'Uploading...'
-                                                : 'Processing on server...'}
-                                        </span>
-                                        <div className="flex gap-4">
-                                            <span>
-                                                Elapsed: {elapsedSeconds}s
+                                    {/* Detailed Stats */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                        {/* Bytes Progress */}
+                                        <div className="flex flex-col">
+                                            <span className="text-muted-foreground">
+                                                Uploaded
                                             </span>
-                                            {uploadProgress > 0 &&
+                                            <span className="font-medium">
+                                                {(
+                                                    bytesLoaded /
+                                                    (1024 * 1024)
+                                                ).toFixed(2)}{' '}
+                                                /{' '}
+                                                {(
+                                                    bytesTotal /
+                                                    (1024 * 1024)
+                                                ).toFixed(2)}{' '}
+                                                MB
+                                            </span>
+                                        </div>
+
+                                        {/* Upload Speed */}
+                                        <div className="flex flex-col">
+                                            <span className="text-muted-foreground">
+                                                Speed
+                                            </span>
+                                            <span className="font-medium">
+                                                {elapsedSeconds > 0
+                                                    ? `${(
+                                                          bytesLoaded /
+                                                          1024 /
+                                                          elapsedSeconds
+                                                      ).toFixed(0)} KB/s`
+                                                    : '—'}
+                                            </span>
+                                        </div>
+
+                                        {/* Elapsed Time */}
+                                        <div className="flex flex-col">
+                                            <span className="text-muted-foreground">
+                                                Elapsed
+                                            </span>
+                                            <span className="font-medium">
+                                                {elapsedSeconds < 60
+                                                    ? `${elapsedSeconds}s`
+                                                    : `${Math.floor(
+                                                          elapsedSeconds / 60
+                                                      )}m ${
+                                                          elapsedSeconds % 60
+                                                      }s`}
+                                            </span>
+                                        </div>
+
+                                        {/* ETA */}
+                                        <div className="flex flex-col">
+                                            <span className="text-muted-foreground">
+                                                Estimated Time
+                                            </span>
+                                            <span className="font-medium text-primary">
+                                                {uploadProgress > 0 &&
                                                 uploadProgress < 100 &&
-                                                elapsedSeconds > 0 && (
-                                                    <span>
-                                                        ETA:{' '}
-                                                        {Math.round(
-                                                            (elapsedSeconds /
-                                                                uploadProgress) *
-                                                                (100 -
-                                                                    uploadProgress)
-                                                        )}
-                                                        s
-                                                    </span>
-                                                )}
+                                                elapsedSeconds > 0
+                                                    ? (() => {
+                                                          const etaSeconds =
+                                                              Math.round(
+                                                                  (elapsedSeconds /
+                                                                      uploadProgress) *
+                                                                      (100 -
+                                                                          uploadProgress)
+                                                              );
+                                                          if (etaSeconds < 60)
+                                                              return `~${etaSeconds}s remaining`;
+                                                          return `~${Math.floor(
+                                                              etaSeconds / 60
+                                                          )}m ${
+                                                              etaSeconds % 60
+                                                          }s remaining`;
+                                                      })()
+                                                    : uploadProgress >= 100
+                                                    ? 'Processing...'
+                                                    : 'Calculating...'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <p className="text-xs text-center text-muted-foreground">
-                                    Please wait while we process your file(s).
-                                    This may take a moment for large files.
+                                    Please wait while we upload and process your
+                                    file(s). This may take a moment for large
+                                    files.
                                 </p>
                             </div>
                         ) : (

@@ -63,4 +63,10 @@ export interface ILead {
 
     owner: string;
     activities?: IActivity[];
+
+    // Timestamps and user tracking
+    createdAt?: string;
+    createdBy?: { _id: string; firstName?: string; lastName?: string };
+    updatedAt?: string;
+    updatedBy?: { _id: string; firstName?: string; lastName?: string };
 }

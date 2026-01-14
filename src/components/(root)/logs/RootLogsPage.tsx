@@ -18,19 +18,25 @@ import {
     SelectItem,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-    ChevronLeft, 
-    ChevronRight, 
-    Search, 
-    RotateCcw, 
-    Activity, 
+import {
+    ChevronLeft,
+    ChevronRight,
+    Search,
+    RotateCcw,
+    Activity,
     Calendar as CalendarIcon,
     AlertCircle,
     Info,
     AlertTriangle,
-    Shield
+    Shield,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -46,7 +52,14 @@ import { useGetAllUsersQuery } from '@/redux/features/user/userApi';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const ENTITY_TYPES = [
-    'lead', 'task', 'user', 'system', 'trash', 'group', 'invitation', 'other'
+    'lead',
+    'task',
+    'user',
+    'system',
+    'trash',
+    'group',
+    'invitation',
+    'other',
 ];
 
 const LOG_LEVELS = ['info', 'warning', 'error', 'debug'];
@@ -78,7 +91,7 @@ interface LogEntry {
 
 export default function RootLogsPage() {
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(20);
+    const [limit] = useState(20);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [userId, setUserId] = useState('all');
@@ -111,7 +124,10 @@ export default function RootLogsPage() {
     const pagination = data?.pagination ?? { totalItems: 0, totalPages: 1 };
 
     // Fetch users for filter
-    const { data: usersData } = useGetAllUsersQuery({ role: 'all', includeAdmins: true });
+    const { data: usersData } = useGetAllUsersQuery({
+        role: 'all',
+        includeAdmins: true,
+    });
     const users: UserOption[] = usersData?.users ?? [];
 
     const handleReset = () => {
@@ -123,14 +139,45 @@ export default function RootLogsPage() {
         setPage(1);
     };
 
-    const hasFilters = search || userId !== 'all' || entityType !== 'all' || level !== 'all' || date;
+    const hasFilters =
+        search ||
+        userId !== 'all' ||
+        entityType !== 'all' ||
+        level !== 'all' ||
+        date;
 
     const getLevelBadge = (lvl: string) => {
         switch (lvl) {
-            case 'error': return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" /> Error</Badge>;
-            case 'warning': return <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50 gap-1"><AlertTriangle className="h-3 w-3" /> Warning</Badge>;
-            case 'debug': return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50 gap-1"><Shield className="h-3 w-3" /> Debug</Badge>;
-            default: return <Badge variant="secondary" className="gap-1"><Info className="h-3 w-3" /> Info</Badge>;
+            case 'error':
+                return (
+                    <Badge variant="destructive" className="gap-1">
+                        <AlertCircle className="h-3 w-3" /> Error
+                    </Badge>
+                );
+            case 'warning':
+                return (
+                    <Badge
+                        variant="outline"
+                        className="text-yellow-600 border-yellow-200 bg-yellow-50 gap-1"
+                    >
+                        <AlertTriangle className="h-3 w-3" /> Warning
+                    </Badge>
+                );
+            case 'debug':
+                return (
+                    <Badge
+                        variant="outline"
+                        className="text-purple-600 border-purple-200 bg-purple-50 gap-1"
+                    >
+                        <Shield className="h-3 w-3" /> Debug
+                    </Badge>
+                );
+            default:
+                return (
+                    <Badge variant="secondary" className="gap-1">
+                        <Info className="h-3 w-3" /> Info
+                    </Badge>
+                );
         }
     };
 
@@ -138,7 +185,9 @@ export default function RootLogsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">System Logs</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        System Logs
+                    </h1>
                     <p className="text-muted-foreground text-sm">
                         Monitor system activities and user actions.
                     </p>
@@ -151,7 +200,9 @@ export default function RootLogsPage() {
                         <Activity className="h-4 w-4 text-primary" />
                         Log Filters
                     </CardTitle>
-                    <CardDescription>Filter logs by user, type, level or date</CardDescription>
+                    <CardDescription>
+                        Filter logs by user, type, level or date
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex flex-wrap items-center gap-3">
@@ -167,7 +218,13 @@ export default function RootLogsPage() {
                         </div>
 
                         {/* User Filter */}
-                        <Select value={userId} onValueChange={(val) => { setUserId(val); setPage(1); }}>
+                        <Select
+                            value={userId}
+                            onValueChange={(val) => {
+                                setUserId(val);
+                                setPage(1);
+                            }}
+                        >
                             <SelectTrigger className="h-9 w-[150px]">
                                 <SelectValue placeholder="User" />
                             </SelectTrigger>
@@ -182,27 +239,51 @@ export default function RootLogsPage() {
                         </Select>
 
                         {/* Entity Type Filter */}
-                        <Select value={entityType} onValueChange={(val) => { setEntityType(val); setPage(1); }}>
+                        <Select
+                            value={entityType}
+                            onValueChange={(val) => {
+                                setEntityType(val);
+                                setPage(1);
+                            }}
+                        >
                             <SelectTrigger className="h-9 w-[140px]">
                                 <SelectValue placeholder="Entity Type" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Types</SelectItem>
                                 {ENTITY_TYPES.map((t) => (
-                                    <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                                    <SelectItem
+                                        key={t}
+                                        value={t}
+                                        className="capitalize"
+                                    >
+                                        {t}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
 
                         {/* Level Filter */}
-                        <Select value={level} onValueChange={(val) => { setLevel(val); setPage(1); }}>
+                        <Select
+                            value={level}
+                            onValueChange={(val) => {
+                                setLevel(val);
+                                setPage(1);
+                            }}
+                        >
                             <SelectTrigger className="h-9 w-[120px]">
                                 <SelectValue placeholder="Level" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Levels</SelectItem>
                                 {LOG_LEVELS.map((l) => (
-                                    <SelectItem key={l} value={l} className="capitalize">{l}</SelectItem>
+                                    <SelectItem
+                                        key={l}
+                                        value={l}
+                                        className="capitalize"
+                                    >
+                                        {l}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -211,21 +292,31 @@ export default function RootLogsPage() {
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
-                                    variant={"outline"}
+                                    variant={'outline'}
                                     className={cn(
-                                        "w-[180px] h-9 justify-start text-left font-normal",
-                                        !date && "text-muted-foreground"
+                                        'w-[180px] h-9 justify-start text-left font-normal',
+                                        !date && 'text-muted-foreground'
                                     )}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                    {date ? (
+                                        format(date, 'PPP')
+                                    ) : (
+                                        <span>Pick a date</span>
+                                    )}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
+                            <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
+                            >
                                 <Calendar
                                     mode="single"
                                     selected={date}
-                                    onSelect={(d) => { setDate(d); setPage(1); }}
+                                    onSelect={(d) => {
+                                        setDate(d);
+                                        setPage(1);
+                                    }}
                                     initialFocus
                                 />
                             </PopoverContent>
@@ -233,7 +324,12 @@ export default function RootLogsPage() {
 
                         {/* Reset */}
                         {hasFilters && (
-                            <Button variant="ghost" size="sm" onClick={handleReset} className="h-9 gap-1.5 ml-auto md:ml-0">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleReset}
+                                className="h-9 gap-1.5 ml-auto md:ml-0"
+                            >
                                 <RotateCcw className="h-3.5 w-3.5" /> Reset
                             </Button>
                         )}
@@ -243,11 +339,21 @@ export default function RootLogsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[180px]">Timestamp</TableHead>
-                                    <TableHead className="w-[100px]">Level</TableHead>
-                                    <TableHead className="w-[200px]">User</TableHead>
-                                    <TableHead className="w-[150px]">Action</TableHead>
-                                    <TableHead className="w-[120px]">Entity</TableHead>
+                                    <TableHead className="w-[180px]">
+                                        Timestamp
+                                    </TableHead>
+                                    <TableHead className="w-[100px]">
+                                        Level
+                                    </TableHead>
+                                    <TableHead className="w-[200px]">
+                                        User
+                                    </TableHead>
+                                    <TableHead className="w-[150px]">
+                                        Action
+                                    </TableHead>
+                                    <TableHead className="w-[120px]">
+                                        Entity
+                                    </TableHead>
                                     <TableHead>Description</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -255,52 +361,106 @@ export default function RootLogsPage() {
                                 {isLoading || isFetching ? (
                                     Array.from({ length: 5 }).map((_, i) => (
                                         <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                                            <TableCell><Skeleton className="h-8 w-8 rounded-full inline-block mr-2" /><Skeleton className="h-4 w-24 inline-block" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-24" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-5 w-16 rounded-full" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-8 w-8 rounded-full inline-block mr-2" />
+                                                <Skeleton className="h-4 w-24 inline-block" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-20" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-16" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-48" />
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : logs.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
+                                        <TableCell
+                                            colSpan={6}
+                                            className="h-24 text-center"
+                                        >
                                             No logs found.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     (logs as LogEntry[]).map((log) => (
-                                        <TableRow key={log._id} className="group">
+                                        <TableRow
+                                            key={log._id}
+                                            className="group"
+                                        >
                                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                                {format(new Date(log.createdAt), 'PP pp')}
+                                                {format(
+                                                    new Date(log.createdAt),
+                                                    'PP pp'
+                                                )}
                                             </TableCell>
                                             <TableCell>
-                                                {getLevelBadge(log.level || 'info')}
+                                                {getLevelBadge(
+                                                    log.level || 'info'
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {log.user ? (
                                                     <div className="flex items-center gap-2">
                                                         <Avatar className="h-6 w-6">
-                                                            <AvatarImage src={log.user.image} />
+                                                            <AvatarImage
+                                                                src={
+                                                                    log.user
+                                                                        .image
+                                                                }
+                                                            />
                                                             <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                                                {log.user.firstName?.[0]}{log.user.lastName?.[0]}
+                                                                {
+                                                                    log.user
+                                                                        .firstName?.[0]
+                                                                }
+                                                                {
+                                                                    log.user
+                                                                        .lastName?.[0]
+                                                                }
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex flex-col">
-                                                            <span className="text-sm font-medium leading-none">{log.user.firstName} {log.user.lastName}</span>
-                                                            <span className="text-[10px] text-muted-foreground">{log.user.email}</span>
+                                                            <span className="text-sm font-medium leading-none">
+                                                                {
+                                                                    log.user
+                                                                        .firstName
+                                                                }{' '}
+                                                                {
+                                                                    log.user
+                                                                        .lastName
+                                                                }
+                                                            </span>
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                {log.user.email}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-muted-foreground text-sm italic">System/Guest</span>
+                                                    <span className="text-muted-foreground text-sm italic">
+                                                        System/Guest
+                                                    </span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <span className="font-mono text-xs bg-muted/50 px-2 py-1 rounded">{log.action}</span>
+                                                <span className="font-mono text-xs bg-muted/50 px-2 py-1 rounded">
+                                                    {log.action}
+                                                </span>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className="capitalize text-xs font-normal">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="capitalize text-xs font-normal"
+                                                >
                                                     {log.entityType}
                                                 </Badge>
                                             </TableCell>
@@ -315,7 +475,11 @@ export default function RootLogsPage() {
                                                             View Meta Data
                                                         </summary>
                                                         <pre className="mt-1 p-2 bg-muted/30 rounded text-[10px] overflow-auto max-h-[100px]">
-                                                            {JSON.stringify(log.data, null, 2)}
+                                                            {JSON.stringify(
+                                                                log.data,
+                                                                null,
+                                                                2
+                                                            )}
                                                         </pre>
                                                     </details>
                                                 )}
@@ -330,13 +494,19 @@ export default function RootLogsPage() {
                     {/* Pagination */}
                     <div className="flex items-center justify-between pt-4 border-t">
                         <div className="text-xs text-muted-foreground">
-                            Showing <strong>{(page - 1) * limit + 1}</strong> to <strong>{Math.min(page * limit, pagination.totalItems)}</strong> of <strong>{pagination.totalItems}</strong> entries
+                            Showing <strong>{(page - 1) * limit + 1}</strong> to{' '}
+                            <strong>
+                                {Math.min(page * limit, pagination.totalItems)}
+                            </strong>{' '}
+                            of <strong>{pagination.totalItems}</strong> entries
                         </div>
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                onClick={() =>
+                                    setPage((p) => Math.max(1, p - 1))
+                                }
                                 disabled={page === 1}
                                 className="h-8 w-8 p-0"
                             >
@@ -348,7 +518,7 @@ export default function RootLogsPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setPage(p => p + 1)}
+                                onClick={() => setPage((p) => p + 1)}
                                 disabled={page >= pagination.totalPages}
                                 className="h-8 w-8 p-0"
                             >

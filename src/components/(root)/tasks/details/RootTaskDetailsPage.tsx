@@ -88,6 +88,22 @@ export default function RootTaskDetailsPage() {
 
     const handleOpenDialog = (lead: ILead) => {
         setSelectedLead(lead);
+
+        // Get latest activity to pre-fill data
+        const latestActivity =
+            lead.activities && lead.activities.length > 0
+                ? lead.activities[lead.activities.length - 1]
+                : null;
+
+        setActivityData({
+            status: lead.status, // Pre-fill current status
+            notes: '', // Notes are usually new for the update
+            nextAction: latestActivity?.nextAction, // Pre-fill last next action
+            dueAt: latestActivity?.dueAt
+                ? new Date(latestActivity.dueAt)
+                : undefined, // Pre-fill last due date
+        });
+
         setIsDialogOpen(true);
     };
 
@@ -96,6 +112,12 @@ export default function RootTaskDetailsPage() {
 
         if (!selectedLead || !task || !activityData.status) {
             toast.error('Please select a status before saving.');
+            return;
+        }
+
+        // Validation: Due Date is mandatory if Next Action is selected
+        if (activityData.nextAction && !activityData.dueAt) {
+            toast.error('Due Date is required when Next Action is selected.');
             return;
         }
 
@@ -153,11 +175,11 @@ export default function RootTaskDetailsPage() {
                 toast.success('Task force completed successfully');
             }
         } catch (error) {
-            toast.error((error as Error).message || 'Failed to force complete task');
+            toast.error(
+                (error as Error).message || 'Failed to force complete task'
+            );
         }
     };
-
-
 
     if (!task)
         return <div className="p-6 text-muted-foreground">Task not found.</div>;
@@ -172,8 +194,12 @@ export default function RootTaskDetailsPage() {
                             <ClipboardList className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg">{task.title}</CardTitle>
-                            <p className="text-sm text-muted-foreground capitalize">{task.type.replace('_', ' ')}</p>
+                            <CardTitle className="text-lg">
+                                {task.title}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground capitalize">
+                                {task.type.replace('_', ' ')}
+                            </p>
                         </div>
                     </div>
                     {isAdmin && task.status !== 'completed' && (
@@ -184,7 +210,11 @@ export default function RootTaskDetailsPage() {
                             disabled={isForceCompleting}
                             className="gap-2"
                         >
-                            {isForceCompleting ? <Spinner className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                            {isForceCompleting ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                            )}
                             Force Complete
                         </Button>
                     )}
@@ -193,59 +223,84 @@ export default function RootTaskDetailsPage() {
                     {/* Status */}
                     <div className="space-y-1">
                         <p className="text-xs text-muted-foreground">Status</p>
-                        <Badge className={cn(
-                            "capitalize",
-                            task.status === 'completed' && "bg-green-100 text-green-700 border-green-200",
-                            task.status === 'in_progress' && "bg-blue-100 text-blue-700 border-blue-200",
-                            task.status === 'pending' && "bg-yellow-100 text-yellow-700 border-yellow-200",
-                            task.status === 'cancelled' && "bg-red-100 text-red-700 border-red-200"
-                        )}>
+                        <Badge
+                            className={cn(
+                                'capitalize',
+                                task.status === 'completed' &&
+                                    'bg-green-100 text-green-700 border-green-200',
+                                task.status === 'in_progress' &&
+                                    'bg-blue-100 text-blue-700 border-blue-200',
+                                task.status === 'pending' &&
+                                    'bg-yellow-100 text-yellow-700 border-yellow-200',
+                                task.status === 'cancelled' &&
+                                    'bg-red-100 text-red-700 border-red-200'
+                            )}
+                        >
                             {task.status.replace('_', ' ')}
                         </Badge>
                     </div>
-                    
+
                     {/* Progress */}
                     <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Progress</p>
+                        <p className="text-xs text-muted-foreground">
+                            Progress
+                        </p>
                         <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[100px]">
-                                <div 
-                                    className={cn("h-full transition-all", task.progress === 100 ? "bg-green-500" : "bg-primary")}
+                                <div
+                                    className={cn(
+                                        'h-full transition-all',
+                                        task.progress === 100
+                                            ? 'bg-green-500'
+                                            : 'bg-primary'
+                                    )}
                                     style={{ width: `${task.progress ?? 0}%` }}
                                 />
                             </div>
-                            <span className="text-sm font-medium">{task.progress ?? 0}%</span>
+                            <span className="text-sm font-medium">
+                                {task.progress ?? 0}%
+                            </span>
                         </div>
                     </div>
-                    
+
                     {/* Assigned To */}
                     <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Assigned To</p>
+                        <p className="text-xs text-muted-foreground">
+                            Assigned To
+                        </p>
                         <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
-                                <AvatarImage src={task.assignedTo?.image || ''} />
+                                <AvatarImage
+                                    src={task.assignedTo?.image || ''}
+                                />
                                 <AvatarFallback className="text-xs">
                                     {task.assignedTo?.firstName?.[0]}
                                 </AvatarFallback>
                             </Avatar>
                             <span className="text-sm">
-                                {task.assignedTo?.firstName} {task.assignedTo?.lastName}
+                                {task.assignedTo?.firstName}{' '}
+                                {task.assignedTo?.lastName}
                             </span>
                         </div>
                     </div>
-                    
+
                     {/* Created By */}
                     <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Created By</p>
+                        <p className="text-xs text-muted-foreground">
+                            Created By
+                        </p>
                         <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
-                                <AvatarImage src={task.createdBy?.image || ''} />
+                                <AvatarImage
+                                    src={task.createdBy?.image || ''}
+                                />
                                 <AvatarFallback className="text-xs">
                                     {task.createdBy?.firstName?.[0]}
                                 </AvatarFallback>
                             </Avatar>
                             <span className="text-sm">
-                                {task.createdBy?.firstName} {task.createdBy?.lastName}
+                                {task.createdBy?.firstName}{' '}
+                                {task.createdBy?.lastName}
                             </span>
                         </div>
                     </div>
@@ -262,7 +317,9 @@ export default function RootTaskDetailsPage() {
                                 {task?.completedLeads?.length || 0} completed
                             </span>
                             <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
-                                {leads.length - (task?.completedLeads?.length || 0)} pending
+                                {leads.length -
+                                    (task?.completedLeads?.length || 0)}{' '}
+                                pending
                             </span>
                         </div>
                     </div>

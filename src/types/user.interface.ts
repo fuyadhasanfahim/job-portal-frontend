@@ -43,4 +43,12 @@ export interface IUser {
     emailVerified: boolean;
     emailVerificationToken?: string;
     emailVerificationExpiry?: Date;
+
+    // Table column preferences per page
+    tablePreferences?: {
+        leads?: string[];
+        createTask?: string[];
+        schedules?: string[];
+        taskDetails?: string[];
+    };
 }

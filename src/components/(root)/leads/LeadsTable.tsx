@@ -82,6 +82,8 @@ import {
 } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useSignedUser } from '@/hooks/useSignedUser';
+import { useTableColumns } from '@/hooks/useTableColumns';
+import { ColumnCustomizerDialog } from '@/components/shared/ColumnCustomizerDialog';
 import { toast } from 'sonner';
 
 type SortOption =
@@ -196,6 +198,7 @@ export default function LeadsTable() {
 
     const { user } = useSignedUser();
     const isAdmin = user?.role === 'admin' || user?.role === 'super-admin';
+    const { isColumnVisible } = useTableColumns('leads');
 
     const { data: countries } = useGetCountriesQuery({});
     const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
@@ -692,6 +695,9 @@ export default function LeadsTable() {
                                         Reset
                                     </Button>
                                 )}
+
+                                {/* Column Customizer */}
+                                <ColumnCustomizerDialog page="leads" />
                             </div>
                         </div>
 
@@ -856,27 +862,76 @@ export default function LeadsTable() {
                                         <TableHead className="text-xs font-semibold">
                                             Company
                                         </TableHead>
-                                        <TableHead className="text-xs font-semibold">
-                                            Website
-                                        </TableHead>
-                                        <TableHead className="text-xs font-semibold w-[140px]">
-                                            Name
-                                        </TableHead>
-                                        <TableHead className="text-xs font-semibold">
-                                            Emails
-                                        </TableHead>
-                                        <TableHead className="text-xs font-semibold">
-                                            Designation
-                                        </TableHead>
-                                        <TableHead className="text-xs font-semibold">
-                                            Country
-                                        </TableHead>
-                                        <TableHead className="text-xs font-semibold">
-                                            Group
-                                        </TableHead>
-                                        <TableHead className="text-xs font-semibold">
-                                            Notes
-                                        </TableHead>
+                                        {isColumnVisible('website') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Website
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('name') && (
+                                            <TableHead className="text-xs font-semibold w-[140px]">
+                                                Name
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('emails') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Emails
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('phones') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Phones
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('designation') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Designation
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('country') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Country
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('group') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Group
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('notes') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Notes
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('status') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Status
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('dueDate') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Due Date
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('createdAt') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Created At
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('createdBy') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Created By
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('updatedAt') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Updated At
+                                            </TableHead>
+                                        )}
+                                        {isColumnVisible('updatedBy') && (
+                                            <TableHead className="text-xs font-semibold">
+                                                Updated By
+                                            </TableHead>
+                                        )}
                                         <TableHead className="text-xs font-semibold text-center w-16">
                                             Actions
                                         </TableHead>
@@ -971,104 +1026,243 @@ export default function LeadsTable() {
                                                         </div>
                                                     </TableCell>
 
-                                                    <TableCell className="text-sm max-w-[150px] truncate py-2.5">
-                                                        {lead.company
-                                                            .website ? (
-                                                            <Link
-                                                                href={
-                                                                    lead.company.website.startsWith(
-                                                                        'http'
-                                                                    )
-                                                                        ? lead
-                                                                              .company
-                                                                              .website
-                                                                        : `https://${lead.company.website}`
-                                                                }
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-primary hover:underline"
-                                                            >
-                                                                {
-                                                                    lead.company
-                                                                        .website
-                                                                }
-                                                            </Link>
-                                                        ) : (
-                                                            '—'
-                                                        )}
-                                                    </TableCell>
-
-                                                    <TableCell className="text-sm capitalize py-2.5 w-[140px] max-w-[140px] truncate">
-                                                        {fullName}
-                                                    </TableCell>
-
-                                                    <TableCell className="text-sm max-w-[180px] truncate py-2.5">
-                                                        {lead.contactPersons
-                                                            ?.flatMap(
-                                                                (cp) =>
-                                                                    cp.emails
-                                                            )
-                                                            ?.slice(0, 2)
-                                                            ?.join(', ') || '—'}
-                                                    </TableCell>
-
-                                                    <TableCell className="text-sm capitalize max-w-[120px] truncate py-2.5">
-                                                        {contact?.designation ||
-                                                            '—'}
-                                                    </TableCell>
-
-                                                    <TableCell className="text-sm capitalize py-2.5">
-                                                        {lead.country || '—'}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-2.5">
-                                                        {lead.group ? (
-                                                            <div className="flex items-center gap-1.5">
-                                                                <div
-                                                                    className="w-2 h-2 rounded-full shrink-0"
-                                                                    style={{
-                                                                        backgroundColor:
-                                                                            lead
-                                                                                .group
-                                                                                .color ||
-                                                                            '#6366f1',
-                                                                    }}
-                                                                />
-                                                                <span className="text-sm truncate max-w-[80px]">
+                                                    {isColumnVisible(
+                                                        'website'
+                                                    ) && (
+                                                        <TableCell className="text-sm max-w-[150px] truncate py-2.5">
+                                                            {lead.company
+                                                                .website ? (
+                                                                <Link
+                                                                    href={
+                                                                        lead.company.website.startsWith(
+                                                                            'http'
+                                                                        )
+                                                                            ? lead
+                                                                                  .company
+                                                                                  .website
+                                                                            : `https://${lead.company.website}`
+                                                                    }
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-primary hover:underline"
+                                                                >
                                                                     {
                                                                         lead
-                                                                            .group
-                                                                            .name
+                                                                            .company
+                                                                            .website
                                                                     }
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">
-                                                                —
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
+                                                                </Link>
+                                                            ) : (
+                                                                '—'
+                                                            )}
+                                                        </TableCell>
+                                                    )}
 
-                                                    <TableCell className="text-sm max-w-[150px] py-2.5">
-                                                        <Tooltip>
-                                                            <TooltipTrigger
-                                                                asChild
-                                                            >
-                                                                <span className="block truncate cursor-help text-muted-foreground">
+                                                    {isColumnVisible(
+                                                        'name'
+                                                    ) && (
+                                                        <TableCell className="text-sm capitalize py-2.5 w-[140px] max-w-[140px] truncate">
+                                                            {fullName}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'emails'
+                                                    ) && (
+                                                        <TableCell className="text-sm max-w-[180px] truncate py-2.5">
+                                                            {lead.contactPersons
+                                                                ?.flatMap(
+                                                                    (cp) =>
+                                                                        cp.emails
+                                                                )
+                                                                ?.slice(0, 2)
+                                                                ?.join(', ') ||
+                                                                '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'phones'
+                                                    ) && (
+                                                        <TableCell className="text-sm max-w-[150px] truncate py-2.5">
+                                                            {lead.contactPersons
+                                                                ?.flatMap(
+                                                                    (cp) =>
+                                                                        cp.phones
+                                                                )
+                                                                ?.slice(0, 2)
+                                                                ?.join(', ') ||
+                                                                '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'designation'
+                                                    ) && (
+                                                        <TableCell className="text-sm capitalize max-w-[120px] truncate py-2.5">
+                                                            {contact?.designation ||
+                                                                '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'country'
+                                                    ) && (
+                                                        <TableCell className="text-sm capitalize py-2.5">
+                                                            {lead.country ||
+                                                                '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'group'
+                                                    ) && (
+                                                        <TableCell className="py-2.5">
+                                                            {lead.group ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <div
+                                                                        className="w-2 h-2 rounded-full shrink-0"
+                                                                        style={{
+                                                                            backgroundColor:
+                                                                                lead
+                                                                                    .group
+                                                                                    .color ||
+                                                                                '#6366f1',
+                                                                        }}
+                                                                    />
+                                                                    <span className="text-sm truncate max-w-[80px]">
+                                                                        {
+                                                                            lead
+                                                                                .group
+                                                                                .name
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground">
+                                                                    —
+                                                                </span>
+                                                            )}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'notes'
+                                                    ) && (
+                                                        <TableCell className="text-sm max-w-[150px] py-2.5">
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
+                                                                    <span className="block truncate cursor-help text-muted-foreground">
+                                                                        {lead
+                                                                            .activities?.[0]
+                                                                            ?.notes ||
+                                                                            '—'}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent className="max-w-sm wrap-break-word">
                                                                     {lead
                                                                         .activities?.[0]
                                                                         ?.notes ||
-                                                                        '—'}
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="max-w-sm wrap-break-word">
-                                                                {lead
-                                                                    .activities?.[0]
-                                                                    ?.notes ||
-                                                                    'No notes'}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TableCell>
+                                                                        'No notes'}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'status'
+                                                    ) && (
+                                                        <TableCell className="text-sm py-2.5">
+                                                            <span className="capitalize text-muted-foreground">
+                                                                {lead.status?.replace(
+                                                                    /-/g,
+                                                                    ' '
+                                                                ) || '—'}
+                                                            </span>
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'dueDate'
+                                                    ) && (
+                                                        <TableCell className="text-sm py-2.5 text-muted-foreground">
+                                                            {lead
+                                                                .activities?.[0]
+                                                                ?.dueAt
+                                                                ? new Date(
+                                                                      lead.activities[0].dueAt
+                                                                  ).toLocaleDateString()
+                                                                : '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'createdAt'
+                                                    ) && (
+                                                        <TableCell className="text-sm py-2.5 text-muted-foreground">
+                                                            {lead.createdAt
+                                                                ? new Date(
+                                                                      lead.createdAt
+                                                                  ).toLocaleDateString()
+                                                                : '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'createdBy'
+                                                    ) && (
+                                                        <TableCell className="text-sm py-2.5 text-muted-foreground capitalize">
+                                                            {(() => {
+                                                                const creator =
+                                                                    lead.createdBy ||
+                                                                    (lead.owner as unknown as IUser);
+                                                                return creator?.firstName
+                                                                    ? `${
+                                                                          creator.firstName
+                                                                      } ${
+                                                                          creator.lastName ||
+                                                                          ''
+                                                                      }`
+                                                                    : '—';
+                                                            })()}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'updatedAt'
+                                                    ) && (
+                                                        <TableCell className="text-sm py-2.5 text-muted-foreground">
+                                                            {lead.updatedAt
+                                                                ? new Date(
+                                                                      lead.updatedAt
+                                                                  ).toLocaleDateString()
+                                                                : '—'}
+                                                        </TableCell>
+                                                    )}
+
+                                                    {isColumnVisible(
+                                                        'updatedBy'
+                                                    ) && (
+                                                        <TableCell className="text-sm py-2.5 text-muted-foreground capitalize">
+                                                            {typeof lead.updatedBy ===
+                                                                'object' &&
+                                                            lead.updatedBy
+                                                                ?.firstName
+                                                                ? `${
+                                                                      lead
+                                                                          .updatedBy
+                                                                          .firstName
+                                                                  } ${
+                                                                      lead
+                                                                          .updatedBy
+                                                                          .lastName ||
+                                                                      ''
+                                                                  }`
+                                                                : '—'}
+                                                        </TableCell>
+                                                    )}
 
                                                     <TableCell className="text-center py-2.5">
                                                         <DropdownMenu>

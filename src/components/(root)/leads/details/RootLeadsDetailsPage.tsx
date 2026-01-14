@@ -22,6 +22,7 @@ import {
     IconFolders,
 } from '@tabler/icons-react';
 import type { ILead } from '@/types/lead.interface';
+import { IUser } from '@/types/user.interface';
 import { format } from 'date-fns';
 
 export default function LeadDetailsPage() {
@@ -130,12 +131,65 @@ export default function LeadDetailsPage() {
                             <div className="flex items-center gap-1.5">
                                 <div
                                     className="w-3 h-3 rounded-full"
-                                    style={{ backgroundColor: lead.group.color || '#6366f1' }}
+                                    style={{
+                                        backgroundColor:
+                                            lead.group.color || '#6366f1',
+                                    }}
                                 />
-                                <span className="font-medium">{lead.group.name}</span>
+                                <span className="font-medium">
+                                    {lead.group.name}
+                                </span>
                             </div>
                         </div>
                     )}
+
+                    <div className="pt-3 mt-3 border-t border-gray-100 grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500">
+                                Created By
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                                <IconUser className="h-3.5 w-3.5 text-gray-400" />
+                                <span className="text-sm font-medium text-gray-700 capitalize">
+                                    {(() => {
+                                        const creator =
+                                            lead.createdBy ||
+                                            (lead.owner as unknown as IUser);
+                                        return creator?.firstName
+                                            ? `${creator.firstName} ${
+                                                  creator.lastName || ''
+                                              }`
+                                            : '—';
+                                    })()}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                                {lead.createdAt
+                                    ? format(new Date(lead.createdAt), 'PPP p')
+                                    : '—'}
+                            </p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500">
+                                Updated By
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                                <IconUser className="h-3.5 w-3.5 text-gray-400" />
+                                <span className="text-sm font-medium text-gray-700 capitalize">
+                                    {lead.updatedBy?.firstName
+                                        ? `${lead.updatedBy.firstName} ${
+                                              lead.updatedBy.lastName || ''
+                                          }`
+                                        : '—'}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                                {lead.updatedAt
+                                    ? format(new Date(lead.updatedAt), 'PPP p')
+                                    : '—'}
+                            </p>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -338,9 +392,9 @@ export default function LeadDetailsPage() {
                                         <span className="text-xs text-gray-500">
                                             {a.at
                                                 ? format(
-                                                    new Date(a.at),
-                                                    'PPP, p'
-                                                )
+                                                      new Date(a.at),
+                                                      'PPP, p'
+                                                  )
                                                 : '—'}
                                         </span>
                                     </div>
@@ -359,8 +413,9 @@ export default function LeadDetailsPage() {
                                         <span>By:</span>
                                         <span className="font-medium text-gray-700">
                                             {a.byUser?.firstName
-                                                ? `${a.byUser.firstName} ${a.byUser.lastName ?? ''
-                                                }`
+                                                ? `${a.byUser.firstName} ${
+                                                      a.byUser.lastName ?? ''
+                                                  }`
                                                 : 'User'}
                                         </span>
                                     </div>

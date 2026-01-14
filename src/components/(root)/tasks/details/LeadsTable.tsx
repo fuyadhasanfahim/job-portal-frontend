@@ -10,6 +10,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ILead } from '@/types/lead.interface';
+import { IUser } from '@/types/user.interface';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -55,14 +56,16 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
-import { 
-    useDeleteLeadMutation, 
-    useBulkDeleteLeadsMutation, 
-    useBulkChangeGroupMutation 
+import {
+    useDeleteLeadMutation,
+    useBulkDeleteLeadsMutation,
+    useBulkChangeGroupMutation,
 } from '@/redux/features/lead/leadApi';
 import { useGetGroupsQuery } from '@/redux/features/group/groupApi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useTableColumns } from '@/hooks/useTableColumns';
+import { ColumnCustomizerDialog } from '@/components/shared/ColumnCustomizerDialog';
 
 // Copy text helper
 const copyToClipboard = (text: string | undefined) => {
@@ -72,24 +75,24 @@ const copyToClipboard = (text: string | undefined) => {
 };
 
 // Tooltip cell component with copy
-const TooltipCell = ({ 
-    value, 
+const TooltipCell = ({
+    value,
     className,
-    maxWidth = "max-w-[120px]" 
-}: { 
-    value?: string | null; 
+    maxWidth = 'max-w-[120px]',
+}: {
+    value?: string | null;
     className?: string;
     maxWidth?: string;
 }) => {
     if (!value) return <span className="text-muted-foreground">—</span>;
-    
+
     return (
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <span 
+                    <span
                         className={cn(
-                            "cursor-pointer hover:text-primary transition-colors truncate block",
+                            'cursor-pointer hover:text-primary transition-colors truncate block',
                             maxWidth,
                             className
                         )}
@@ -100,7 +103,9 @@ const TooltipCell = ({
                 </TooltipTrigger>
                 <TooltipContent>
                     <p className="max-w-xs break-all">{value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Click to copy</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Click to copy
+                    </p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
@@ -123,20 +128,23 @@ export default function LeadsTable({
     // Selection mode state
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-    
+
     // Bulk delete dialog
     const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
-    
+
     // Change group dialog
     const [groupDialog, setGroupDialog] = useState(false);
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
 
     // API hooks
     const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
-    const [bulkDeleteLeads, { isLoading: isBulkDeleting }] = useBulkDeleteLeadsMutation();
-    const [bulkChangeGroup, { isLoading: isChangingGroup }] = useBulkChangeGroupMutation();
+    const [bulkDeleteLeads, { isLoading: isBulkDeleting }] =
+        useBulkDeleteLeadsMutation();
+    const [bulkChangeGroup, { isLoading: isChangingGroup }] =
+        useBulkChangeGroupMutation();
     const { data: groupsData } = useGetGroupsQuery({});
     const groups = groupsData?.data ?? [];
+    const { isColumnVisible } = useTableColumns('taskDetails');
 
     const handleDelete = async () => {
         try {
@@ -146,22 +154,22 @@ export default function LeadsTable({
         } catch (error) {
             toast.error(
                 (error as { data?: { message?: string } })?.data?.message ||
-                'Failed to delete lead'
+                    'Failed to delete lead'
             );
         }
     };
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
-            setSelectedLeads(leads.map(lead => lead._id));
+            setSelectedLeads(leads.map((lead) => lead._id));
         } else {
             setSelectedLeads([]);
         }
     };
 
     const handleToggleLead = (id: string) => {
-        setSelectedLeads(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        setSelectedLeads((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
     };
 
@@ -172,14 +180,18 @@ export default function LeadsTable({
 
     const handleBulkDelete = async () => {
         try {
-            const result = await bulkDeleteLeads({ leadIds: selectedLeads }).unwrap();
-            toast.success(result.message || `${result.successCount} leads deleted`);
+            const result = await bulkDeleteLeads({
+                leadIds: selectedLeads,
+            }).unwrap();
+            toast.success(
+                result.message || `${result.successCount} leads deleted`
+            );
             setBulkDeleteDialog(false);
             exitSelectionMode();
         } catch (error) {
             toast.error(
                 (error as { data?: { message?: string } })?.data?.message ||
-                'Failed to delete leads'
+                    'Failed to delete leads'
             );
         }
     };
@@ -190,18 +202,21 @@ export default function LeadsTable({
             return;
         }
         try {
-            const result = await bulkChangeGroup({ 
-                leadIds: selectedLeads, 
-                targetGroupId: selectedGroupId === 'none' ? null : selectedGroupId 
+            const result = await bulkChangeGroup({
+                leadIds: selectedLeads,
+                targetGroupId:
+                    selectedGroupId === 'none' ? null : selectedGroupId,
             }).unwrap();
-            toast.success(result.message || `Group changed for ${result.success} leads`);
+            toast.success(
+                result.message || `Group changed for ${result.success} leads`
+            );
             setGroupDialog(false);
             setSelectedGroupId('');
             exitSelectionMode();
         } catch (error) {
             toast.error(
                 (error as { data?: { message?: string } })?.data?.message ||
-                'Failed to change group'
+                    'Failed to change group'
             );
         }
     };
@@ -212,13 +227,20 @@ export default function LeadsTable({
             <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                     {selectionMode && selectedLeads.length > 0 && (
-                        <span>{selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selected</span>
+                        <span>
+                            {selectedLeads.length} lead
+                            {selectedLeads.length > 1 ? 's' : ''} selected
+                        </span>
                     )}
                 </div>
                 <Button
-                    variant={selectionMode ? "secondary" : "outline"}
+                    variant={selectionMode ? 'secondary' : 'outline'}
                     size="sm"
-                    onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+                    onClick={() =>
+                        selectionMode
+                            ? exitSelectionMode()
+                            : setSelectionMode(true)
+                    }
                     className="gap-2"
                 >
                     {selectionMode ? (
@@ -233,6 +255,9 @@ export default function LeadsTable({
                         </>
                     )}
                 </Button>
+
+                {/* Column Customizer */}
+                <ColumnCustomizerDialog page="taskDetails" />
             </div>
 
             {/* Table without overflow-x */}
@@ -243,136 +268,372 @@ export default function LeadsTable({
                             {selectionMode && (
                                 <TableHead className="w-10 text-center">
                                     <Checkbox
-                                        checked={selectedLeads.length === leads.length && leads.length > 0}
-                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                        checked={
+                                            selectedLeads.length ===
+                                                leads.length && leads.length > 0
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            handleSelectAll(!!checked)
+                                        }
                                     />
                                 </TableHead>
                             )}
-                            <TableHead className="text-xs font-semibold w-[130px]">Company</TableHead>
-                            <TableHead className="text-xs font-semibold w-[100px]">Website</TableHead>
-                            <TableHead className="text-xs font-semibold w-[110px]">Full Name</TableHead>
-                            <TableHead className="text-xs font-semibold w-[130px]">Email</TableHead>
-                            <TableHead className="text-xs font-semibold w-[100px]">Phone</TableHead>
-                            <TableHead className="text-xs font-semibold w-[90px]">Designation</TableHead>
-                            <TableHead className="text-xs font-semibold w-[80px]">Country</TableHead>
-                            <TableHead className="text-xs font-semibold w-[80px]">Group</TableHead>
-                            <TableHead className="text-xs font-semibold w-[80px]">Status</TableHead>
-                            <TableHead className="text-xs font-semibold w-[100px]">Notes</TableHead>
-                            <TableHead className="text-xs font-semibold w-[50px] text-center">Action</TableHead>
+                            <TableHead className="text-xs font-semibold w-[130px]">
+                                Company
+                            </TableHead>
+                            {isColumnVisible('website') && (
+                                <TableHead className="text-xs font-semibold w-[100px]">
+                                    Website
+                                </TableHead>
+                            )}
+                            {isColumnVisible('name') && (
+                                <TableHead className="text-xs font-semibold w-[110px]">
+                                    Full Name
+                                </TableHead>
+                            )}
+                            {isColumnVisible('emails') && (
+                                <TableHead className="text-xs font-semibold w-[130px]">
+                                    Email
+                                </TableHead>
+                            )}
+                            {isColumnVisible('phones') && (
+                                <TableHead className="text-xs font-semibold w-[100px]">
+                                    Phone
+                                </TableHead>
+                            )}
+                            {isColumnVisible('designation') && (
+                                <TableHead className="text-xs font-semibold w-[90px]">
+                                    Designation
+                                </TableHead>
+                            )}
+                            {isColumnVisible('country') && (
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Country
+                                </TableHead>
+                            )}
+                            {isColumnVisible('group') && (
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Group
+                                </TableHead>
+                            )}
+                            {isColumnVisible('status') && (
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Status
+                                </TableHead>
+                            )}
+                            {isColumnVisible('notes') && (
+                                <TableHead className="text-xs font-semibold w-[100px]">
+                                    Notes
+                                </TableHead>
+                            )}
+                            {isColumnVisible('dueDate') && (
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Due Date
+                                </TableHead>
+                            )}
+                            {isColumnVisible('createdAt') && (
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Created At
+                                </TableHead>
+                            )}
+                            {isColumnVisible('createdBy') && (
+                                <TableHead className="text-xs font-semibold w-[90px]">
+                                    Created By
+                                </TableHead>
+                            )}
+                            {isColumnVisible('updatedAt') && (
+                                <TableHead className="text-xs font-semibold w-[80px]">
+                                    Updated At
+                                </TableHead>
+                            )}
+                            {isColumnVisible('updatedBy') && (
+                                <TableHead className="text-xs font-semibold w-[90px]">
+                                    Updated By
+                                </TableHead>
+                            )}
+                            <TableHead className="text-xs font-semibold w-[50px] text-center">
+                                Action
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {leads.length ? (
                             leads.map((lead) => {
                                 const contact = lead.contactPersons?.[0];
-                                const fullName = contact ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim() : '';
+                                const fullName = contact
+                                    ? `${contact.firstName || ''} ${
+                                          contact.lastName || ''
+                                      }`.trim()
+                                    : '';
                                 const email = contact?.emails?.[0];
                                 const phone = contact?.phones?.[0];
-                                const isSelected = selectedLeads.includes(lead._id);
-                                
+                                const isSelected = selectedLeads.includes(
+                                    lead._id
+                                );
+
                                 return (
-                                    <TableRow 
-                                        key={lead._id} 
+                                    <TableRow
+                                        key={lead._id}
                                         className={cn(
-                                            "hover:bg-muted/50 transition-colors",
-                                            selectionMode && isSelected && "bg-primary/5"
+                                            'hover:bg-muted/50 transition-colors',
+                                            selectionMode &&
+                                                isSelected &&
+                                                'bg-primary/5'
                                         )}
                                     >
                                         {selectionMode && (
                                             <TableCell className="py-2 text-center">
                                                 <Checkbox
                                                     checked={isSelected}
-                                                    onCheckedChange={() => handleToggleLead(lead._id)}
+                                                    onCheckedChange={() =>
+                                                        handleToggleLead(
+                                                            lead._id
+                                                        )
+                                                    }
                                                 />
                                             </TableCell>
                                         )}
-                                        
+
                                         {/* Company */}
                                         <TableCell className="py-2">
-                                            <TooltipCell value={lead.company.name} className="font-medium" maxWidth="max-w-[130px]" />
+                                            <TooltipCell
+                                                value={lead.company.name}
+                                                className="font-medium"
+                                                maxWidth="max-w-[130px]"
+                                            />
                                         </TableCell>
 
                                         {/* Website */}
-                                        <TableCell className="py-2">
-                                            {lead.company.website ? (
-                                                <Link
-                                                    href={lead.company.website.startsWith('http') ? lead.company.website : `https://${lead.company.website}`}
-                                                    target="_blank"
-                                                    className="text-blue-600 hover:underline truncate block max-w-[100px]"
-                                                >
-                                                    {lead.company.website}
-                                                </Link>
-                                            ) : <span className="text-muted-foreground">—</span>}
-                                        </TableCell>
+                                        {isColumnVisible('website') && (
+                                            <TableCell className="py-2">
+                                                {lead.company.website ? (
+                                                    <Link
+                                                        href={
+                                                            lead.company.website.startsWith(
+                                                                'http'
+                                                            )
+                                                                ? lead.company
+                                                                      .website
+                                                                : `https://${lead.company.website}`
+                                                        }
+                                                        target="_blank"
+                                                        className="text-blue-600 hover:underline truncate block max-w-[100px]"
+                                                    >
+                                                        {lead.company.website}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
 
                                         {/* Full Name */}
-                                        <TableCell className="py-2 capitalize">
-                                            <TooltipCell value={fullName || null} maxWidth="max-w-[110px]" />
-                                        </TableCell>
+                                        {isColumnVisible('name') && (
+                                            <TableCell className="py-2 capitalize">
+                                                <TooltipCell
+                                                    value={fullName || null}
+                                                    maxWidth="max-w-[110px]"
+                                                />
+                                            </TableCell>
+                                        )}
 
                                         {/* Email */}
-                                        <TableCell className="py-2">
-                                            <TooltipCell value={email} maxWidth="max-w-[130px]" />
-                                        </TableCell>
+                                        {isColumnVisible('emails') && (
+                                            <TableCell className="py-2">
+                                                <TooltipCell
+                                                    value={email}
+                                                    maxWidth="max-w-[130px]"
+                                                />
+                                            </TableCell>
+                                        )}
 
                                         {/* Phone */}
-                                        <TableCell className="py-2">
-                                            <TooltipCell value={phone} maxWidth="max-w-[100px]" />
-                                        </TableCell>
+                                        {isColumnVisible('phones') && (
+                                            <TableCell className="py-2">
+                                                <TooltipCell
+                                                    value={phone}
+                                                    maxWidth="max-w-[100px]"
+                                                />
+                                            </TableCell>
+                                        )}
 
                                         {/* Designation */}
-                                        <TableCell className="py-2 capitalize">
-                                            <TooltipCell value={contact?.designation} maxWidth="max-w-[90px]" />
-                                        </TableCell>
+                                        {isColumnVisible('designation') && (
+                                            <TableCell className="py-2 capitalize">
+                                                <TooltipCell
+                                                    value={contact?.designation}
+                                                    maxWidth="max-w-[90px]"
+                                                />
+                                            </TableCell>
+                                        )}
 
                                         {/* Country */}
-                                        <TableCell className="py-2 capitalize">
-                                            <TooltipCell value={lead.country} maxWidth="max-w-[80px]" />
-                                        </TableCell>
+                                        {isColumnVisible('country') && (
+                                            <TableCell className="py-2 capitalize">
+                                                <TooltipCell
+                                                    value={lead.country}
+                                                    maxWidth="max-w-[80px]"
+                                                />
+                                            </TableCell>
+                                        )}
 
                                         {/* Group */}
-                                        <TableCell className="py-2">
-                                            {lead.group ? (
-                                                <div className="flex items-center gap-1 max-w-[80px]">
-                                                    <div
-                                                        className="w-2 h-2 rounded-full shrink-0"
-                                                        style={{ backgroundColor: lead.group.color || '#6366f1' }}
-                                                    />
-                                                    <span className="truncate text-xs">{lead.group.name}</span>
-                                                </div>
-                                            ) : <span className="text-muted-foreground">—</span>}
-                                        </TableCell>
+                                        {isColumnVisible('group') && (
+                                            <TableCell className="py-2">
+                                                {lead.group ? (
+                                                    <div className="flex items-center gap-1 max-w-[80px]">
+                                                        <div
+                                                            className="w-2 h-2 rounded-full shrink-0"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    lead.group
+                                                                        .color ||
+                                                                    '#6366f1',
+                                                            }}
+                                                        />
+                                                        <span className="truncate text-xs">
+                                                            {lead.group.name}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
 
                                         {/* Status */}
-                                        <TableCell className="py-2">
-                                            <Badge variant="outline" className={cn(
-                                                "capitalize text-[10px]",
-                                                lead.status === 'new' && "bg-blue-50 text-blue-700 border-blue-200",
-                                                lead.status === 'interested' && "bg-green-50 text-green-700 border-green-200",
-                                                lead.status === 'not-interested' && "bg-red-50 text-red-700 border-red-200",
-                                                lead.status === 'call-back' && "bg-yellow-50 text-yellow-700 border-yellow-200",
-                                                lead.status === 'test-trial' && "bg-purple-50 text-purple-700 border-purple-200"
-                                            )}>
-                                                {lead.status.replace(/-/g, ' ')}
-                                            </Badge>
-                                        </TableCell>
+                                        {isColumnVisible('status') && (
+                                            <TableCell className="py-2">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'capitalize text-[10px]',
+                                                        lead.status === 'new' &&
+                                                            'bg-blue-50 text-blue-700 border-blue-200',
+                                                        lead.status ===
+                                                            'interested' &&
+                                                            'bg-green-50 text-green-700 border-green-200',
+                                                        lead.status ===
+                                                            'not-interested' &&
+                                                            'bg-red-50 text-red-700 border-red-200',
+                                                        lead.status ===
+                                                            'call-back' &&
+                                                            'bg-yellow-50 text-yellow-700 border-yellow-200',
+                                                        lead.status ===
+                                                            'test-trial' &&
+                                                            'bg-purple-50 text-purple-700 border-purple-200'
+                                                    )}
+                                                >
+                                                    {lead.status.replace(
+                                                        /-/g,
+                                                        ' '
+                                                    )}
+                                                </Badge>
+                                            </TableCell>
+                                        )}
 
                                         {/* Notes */}
-                                        <TableCell className="py-2">
-                                            <TooltipCell value={lead.activities?.[0]?.notes} maxWidth="max-w-[100px]" />
-                                        </TableCell>
+                                        {isColumnVisible('notes') && (
+                                            <TableCell className="py-2">
+                                                <TooltipCell
+                                                    value={
+                                                        lead.activities?.[0]
+                                                            ?.notes
+                                                    }
+                                                    maxWidth="max-w-[100px]"
+                                                />
+                                            </TableCell>
+                                        )}
+
+                                        {/* Due Date */}
+                                        {isColumnVisible('dueDate') && (
+                                            <TableCell className="py-2 text-sm text-muted-foreground">
+                                                {lead.activities?.[0]?.dueAt
+                                                    ? new Date(
+                                                          lead.activities[0].dueAt
+                                                      ).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
+
+                                        {/* Created At */}
+                                        {isColumnVisible('createdAt') && (
+                                            <TableCell className="py-2 text-sm text-muted-foreground">
+                                                {lead.createdAt
+                                                    ? new Date(
+                                                          lead.createdAt
+                                                      ).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
+
+                                        {/* Created By */}
+                                        {isColumnVisible('createdBy') && (
+                                            <TableCell className="py-2 text-sm text-muted-foreground capitalize">
+                                                {(() => {
+                                                    const creator =
+                                                        lead.createdBy ||
+                                                        (lead.owner as unknown as IUser);
+                                                    return creator?.firstName
+                                                        ? `${
+                                                              creator.firstName
+                                                          } ${
+                                                              creator.lastName ||
+                                                              ''
+                                                          }`
+                                                        : '—';
+                                                })()}
+                                            </TableCell>
+                                        )}
+
+                                        {/* Updated At */}
+                                        {isColumnVisible('updatedAt') && (
+                                            <TableCell className="py-2 text-sm text-muted-foreground">
+                                                {lead.updatedAt
+                                                    ? new Date(
+                                                          lead.updatedAt
+                                                      ).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
+
+                                        {/* Updated By */}
+                                        {isColumnVisible('updatedBy') && (
+                                            <TableCell className="py-2 text-sm text-muted-foreground capitalize">
+                                                {lead.updatedBy?.firstName
+                                                    ? `${
+                                                          lead.updatedBy
+                                                              .firstName
+                                                      } ${
+                                                          lead.updatedBy
+                                                              .lastName || ''
+                                                      }`
+                                                    : '—'}
+                                            </TableCell>
+                                        )}
 
                                         {/* Actions */}
                                         <TableCell className="py-2 text-center">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7"
+                                                    >
                                                         <Ellipsis className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-40">
+                                                <DropdownMenuContent
+                                                    align="end"
+                                                    className="w-40"
+                                                >
                                                     <DropdownMenuItem asChild>
-                                                        <Link 
+                                                        <Link
                                                             href={`/leads/edit/${lead._id}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
@@ -381,18 +642,28 @@ export default function LeadsTable({
                                                             Edit Lead
                                                         </Link>
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusSelect(lead)}>
+                                                    <DropdownMenuItem
+                                                        onClick={() =>
+                                                            handleStatusSelect(
+                                                                lead
+                                                            )
+                                                        }
+                                                    >
                                                         <IconEdit className="h-4 w-4" />
                                                         Update Status
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => setDeleteDialog({
-                                                            open: true,
-                                                            id: lead._id,
-                                                            name: lead.company.name,
-                                                        })}
+                                                        onClick={() =>
+                                                            setDeleteDialog({
+                                                                open: true,
+                                                                id: lead._id,
+                                                                name: lead
+                                                                    .company
+                                                                    .name,
+                                                            })
+                                                        }
                                                     >
                                                         <IconTrash className="h-4 w-4" />
                                                         Delete
@@ -405,7 +676,10 @@ export default function LeadsTable({
                             })
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={selectionMode ? 12 : 11} className="text-center py-12 text-muted-foreground">
+                                <TableCell
+                                    colSpan={selectionMode ? 12 : 11}
+                                    className="text-center py-12 text-muted-foreground"
+                                >
                                     No leads found for this task.
                                 </TableCell>
                             </TableRow>
@@ -421,7 +695,8 @@ export default function LeadsTable({
                         <div className="flex items-center gap-2">
                             <CheckSquare className="h-5 w-5" />
                             <span className="font-medium">
-                                {selectedLeads.length} lead{selectedLeads.length > 1 ? 's' : ''} selected
+                                {selectedLeads.length} lead
+                                {selectedLeads.length > 1 ? 's' : ''} selected
                             </span>
                         </div>
                         <div className="w-px h-6 bg-primary-foreground/30" />
@@ -458,7 +733,9 @@ export default function LeadsTable({
             {/* Single Delete Confirmation Dialog */}
             <AlertDialog
                 open={deleteDialog.open}
-                onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
+                onOpenChange={(open) =>
+                    setDeleteDialog((prev) => ({ ...prev, open }))
+                }
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -466,7 +743,8 @@ export default function LeadsTable({
                         <AlertDialogDescription>
                             Are you sure you want to delete{' '}
                             <strong>&quot;{deleteDialog.name}&quot;</strong>?
-                            This lead will be moved to trash and can be restored by an admin.
+                            This lead will be moved to trash and can be restored
+                            by an admin.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -483,13 +761,19 @@ export default function LeadsTable({
             </AlertDialog>
 
             {/* Bulk Delete Confirmation Dialog */}
-            <AlertDialog open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
+            <AlertDialog
+                open={bulkDeleteDialog}
+                onOpenChange={setBulkDeleteDialog}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {selectedLeads.length} Leads?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Delete {selectedLeads.length} Leads?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete {selectedLeads.length} selected leads?
-                            They will be moved to trash and can be restored by an admin.
+                            Are you sure you want to delete{' '}
+                            {selectedLeads.length} selected leads? They will be
+                            moved to trash and can be restored by an admin.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -499,7 +783,11 @@ export default function LeadsTable({
                             disabled={isBulkDeleting}
                             onClick={handleBulkDelete}
                         >
-                            {isBulkDeleting ? <Spinner className="h-4 w-4" /> : `Delete ${selectedLeads.length} Leads`}
+                            {isBulkDeleting ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                `Delete ${selectedLeads.length} Leads`
+                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -511,36 +799,64 @@ export default function LeadsTable({
                     <DialogHeader>
                         <DialogTitle>Change Group</DialogTitle>
                         <DialogDescription>
-                            Select a new group for {selectedLeads.length} selected leads.
+                            Select a new group for {selectedLeads.length}{' '}
+                            selected leads.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
-                        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                        <Select
+                            value={selectedGroupId}
+                            onValueChange={setSelectedGroupId}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a group" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">
-                                    <span className="text-muted-foreground">Remove from group</span>
+                                    <span className="text-muted-foreground">
+                                        Remove from group
+                                    </span>
                                 </SelectItem>
-                                {groups.map((g: { _id: string; name: string; color?: string }) => (
-                                    <SelectItem key={g._id} value={g._id}>
-                                        <div className="flex items-center gap-2">
-                                            <div 
-                                                className="w-3 h-3 rounded-full" 
-                                                style={{ backgroundColor: g.color || '#6366f1' }} 
-                                            />
-                                            {g.name}
-                                        </div>
-                                    </SelectItem>
-                                ))}
+                                {groups.map(
+                                    (g: {
+                                        _id: string;
+                                        name: string;
+                                        color?: string;
+                                    }) => (
+                                        <SelectItem key={g._id} value={g._id}>
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{
+                                                        backgroundColor:
+                                                            g.color ||
+                                                            '#6366f1',
+                                                    }}
+                                                />
+                                                {g.name}
+                                            </div>
+                                        </SelectItem>
+                                    )
+                                )}
                             </SelectContent>
                         </Select>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setGroupDialog(false)}>Cancel</Button>
-                        <Button onClick={handleChangeGroup} disabled={isChangingGroup || !selectedGroupId}>
-                            {isChangingGroup ? <Spinner className="h-4 w-4" /> : 'Change Group'}
+                        <Button
+                            variant="outline"
+                            onClick={() => setGroupDialog(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleChangeGroup}
+                            disabled={isChangingGroup || !selectedGroupId}
+                        >
+                            {isChangingGroup ? (
+                                <Spinner className="h-4 w-4" />
+                            ) : (
+                                'Change Group'
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

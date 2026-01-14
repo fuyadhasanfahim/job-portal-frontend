@@ -70,6 +70,36 @@ export const userApi = apiSlice.injectEndpoints({
             }),
             invalidatesTags: ['Users'],
         }),
+        updateTablePreferences: builder.mutation<
+            {
+                success: boolean;
+                message: string;
+                preferences: IUser['tablePreferences'];
+            },
+            {
+                page: 'leads' | 'createTask' | 'schedules' | 'taskDetails';
+                columns: string[];
+            }
+        >({
+            query: (data) => ({
+                url: '/users/table-preferences',
+                method: 'PATCH',
+                body: data,
+            }),
+            async onQueryStarted(_, { dispatch, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+                    // Refetch user to update preferences in state
+                    dispatch(
+                        userApi.endpoints.getSignedUser.initiate(undefined, {
+                            forceRefetch: true,
+                        })
+                    );
+                } catch {
+                    // Handle error silently
+                }
+            },
+        }),
     }),
 });
 
@@ -79,4 +109,5 @@ export const {
     useUpdateUserMutation,
     useUpdatePasswordMutation,
     useUnlockUserAccountMutation,
+    useUpdateTablePreferencesMutation,
 } = userApi;
