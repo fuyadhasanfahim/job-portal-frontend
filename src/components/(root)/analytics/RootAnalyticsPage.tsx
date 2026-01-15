@@ -244,7 +244,7 @@ export default function RootAnalyticsPage() {
 
             {/* KPI Cards - matching Dashboard gradient style */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="bg-linear-to-br from-indigo-500 to-indigo-600 text-white border-0">
+                <Card className="bg-linear-to-br from-teal-500 to-teal-600 text-white border-0">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium opacity-90">
                             Total Leads
@@ -271,7 +271,7 @@ export default function RootAnalyticsPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-linear-to-br from-purple-500 to-purple-600 text-white border-0">
+                <Card className="bg-linear-to-br from-teal-600 to-teal-700 text-white border-0">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium opacity-90">
                             {isAdmin ? 'Active Tasks' : 'Interested'}
@@ -295,7 +295,7 @@ export default function RootAnalyticsPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-linear-to-br from-pink-500 to-pink-600 text-white border-0">
+                <Card className="bg-linear-to-br from-orange-500 to-orange-600 text-white border-0">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium opacity-90">
                             {isAdmin ? 'Active Users' : 'On Board'}
@@ -319,7 +319,7 @@ export default function RootAnalyticsPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-linear-to-br from-emerald-500 to-emerald-600 text-white border-0">
+                <Card className="bg-linear-to-br from-orange-400 to-orange-500 text-white border-0">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium opacity-90">
                             Conversion Rate
@@ -592,7 +592,7 @@ export default function RootAnalyticsPage() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-center">
-                                                        <Badge className="bg-indigo-500 hover:bg-indigo-600">
+                                                        <Badge className="bg-teal-500 hover:bg-teal-600">
                                                             {actUser.total}
                                                         </Badge>
                                                     </TableCell>
@@ -786,7 +786,7 @@ export default function RootAnalyticsPage() {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle className="flex items-center gap-2">
-                                <div className="p-2 rounded-lg bg-indigo-500 text-white">
+                                <div className="p-2 rounded-lg bg-teal-500 text-white">
                                     <TrendingUp className="h-4 w-4" />
                                 </div>
                                 Lead Trends
